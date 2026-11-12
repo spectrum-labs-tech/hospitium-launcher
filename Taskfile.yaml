@@ -1,0 +1,30 @@
+version: "3"
+
+# Needs JDK 21 (JAVA_HOME) and the Android SDK (ANDROID_HOME). See README.md.
+
+tasks:
+  check:
+    desc: Everything CI checks (Android lint, unit tests, debug and release builds)
+    cmd: ./gradlew --console=plain lintDebug testDebugUnitTest assembleDebug assembleRelease
+
+  test:
+    desc: Unit tests only (no device, no network)
+    cmd: ./gradlew --console=plain testDebugUnitTest
+
+  build:
+    desc: Debug APK at app/build/outputs/apk/debug/app-debug.apk
+    cmd: ./gradlew --console=plain assembleDebug
+
+  install:
+    desc: Build and install the debug APK on the connected TV or emulator (adb), then open it
+    cmds:
+      - ./gradlew --console=plain installDebug
+      - adb shell am start -n tech.spectrumlabs.hospitium.launcher/.MainActivity
+
+  logs:
+    desc: Follow the launcher's log on the connected device
+    cmd: adb logcat --pid=$(adb shell pidof -s tech.spectrumlabs.hospitium.launcher)
+
+  reset:
+    desc: Clear the launcher's data on the connected device (forgets server, pairing and cache)
+    cmd: adb shell pm clear tech.spectrumlabs.hospitium.launcher

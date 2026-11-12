@@ -1,0 +1,68 @@
+name: CI
+
+# Public repository: GitHub-hosted runners only (a public repo must never reach
+# a self-hosted runner).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  hygiene:
+    name: Hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Every Kotlin source and build script has an SPDX header
+        run: |
+          missing=$(grep -L 'SPDX-License-Identifier: Apache-2.0' $(git ls-files '*.kt' '*.kts') || true)
+          if [ -n "$missing" ]; then echo "Missing SPDX header:"; echo "$missing"; exit 1; fi
+
+  build:
+    name: Lint, test, build APKs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      # validate-wrappers: gradle-wrapper.jar must match a checksum Gradle published.
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          validate-wrappers: true
+      - name: Android lint, unit tests, debug and (unsigned) release APKs
+        run: ./gradlew --console=plain lintDebug testDebugUnitTest assembleDebug assembleRelease
+      - name: Upload APKs
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apks
+          path: app/build/outputs/apk/**/*.apk
+          retention-days: 14
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports
+          path: app/build/reports/
+          retention-days: 7
+
+  notify:
+    name: Discord on failure
+    needs: [hygiene, build]
+    if: ${{ failure() && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: spectrum-labs-tech/.github/actions/discord-notify@main
+        with:
+          webhook: ${{ secrets.DISCORD_CICD_WEBHOOK }}
+          status: failure

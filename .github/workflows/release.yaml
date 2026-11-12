@@ -1,0 +1,56 @@
+name: Release
+
+# Push a tag like v0.1.0 to publish an UNSIGNED release APK with its SHA-256.
+# Signing happens downstream, with the operator's own key: Android refuses to
+# update an app signed by a different key, so whoever deploys signs.
+# versionCode = major*1_000_000 + minor*1_000 + patch, so tags always increase it.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          validate-wrappers: true
+      - name: Build
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)(-.*)?$ ]] || { echo "tag must be vMAJOR.MINOR.PATCH[-suffix]" >&2; exit 1; }
+          code=$(( BASH_REMATCH[1] * 1000000 + BASH_REMATCH[2] * 1000 + BASH_REMATCH[3] ))
+          ./gradlew --console=plain lintDebug testDebugUnitTest assembleRelease \
+            -Phospitium.versionCode="$code" -Phospitium.versionName="${TAG#v}"
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release-unsigned.apk "dist/hospitium-launcher_${TAG}_unsigned.apk"
+          (cd dist && sha256sum * > checksums.txt)
+          echo "versionCode $code"
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "${{ github.ref_name }}" in v0.*|*-*) prerelease="--prerelease";; esac
+          gh release create "${{ github.ref_name }}" dist/* --verify-tag --generate-notes $prerelease
+
+  notify:
+    needs: [apk]
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: spectrum-labs-tech/.github/actions/discord-notify@main
+        with:
+          webhook: ${{ secrets.DISCORD_CICD_WEBHOOK }}
+          status: failure

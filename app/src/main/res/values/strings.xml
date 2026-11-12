@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hospitium</string>
+
+    <string name="setup_title">Set up this TV</string>
+    <string name="setup_body">Enter the address of your Hospitium server. Your property manager has it.</string>
+    <string name="setup_hint">https://hospitium.example</string>
+    <string name="setup_connect">Connect</string>
+
+    <string name="pairing_title">Pair this TV</string>
+    <string name="pairing_body">In Hospitium, open Devices, choose Pair a TV and enter this code.</string>
+    <string name="pairing_requesting">Getting a pairing code…</string>
+    <string name="pairing_expires">This code changes in %1$d min.</string>
+    <string name="pairing_server">Server: %1$s</string>
+    <string name="pairing_change_server">Change server</string>
+
+    <string name="problem_offline">Can\'t reach the server. Check this TV\'s network connection. Retrying…</string>
+    <string name="problem_rate_limited">The server is busy. Retrying shortly…</string>
+    <string name="problem_server">The server had a problem. Retrying…</string>
+    <string name="problem_token_taken">That code was claimed, but this TV didn\'t receive its credentials. Pair it again with the new code.</string>
+
+    <string name="connecting">Connecting…</string>
+    <string name="stale">Offline: showing saved information</string>
+
+    <string name="welcome">Welcome</string>
+    <string name="welcome_guest">Welcome, %1$s</string>
+    <string name="stay_until">Check-out %1$s</string>
+    <string name="checkout_reminder">Check-out is at %1$s. We hope you enjoyed your stay.</string>
+    <string name="wifi_title">Wi-Fi</string>
+    <string name="wifi_network">Network: %1$s</string>
+    <string name="wifi_password">Password: %1$s</string>
+    <string name="row_featured">Watch</string>
+    <string name="row_announcements">From your host</string>
+    <string name="row_all_apps">All apps</string>
+    <string name="row_house_rules">House rules</string>
+    <string name="row_amenities">Amenities</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 16:9 home-screen banner (160x90dp = 320x180px at xhdpi). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="90dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path android:fillColor="#FF1F2A44" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#FFE8B04B" android:pathData="M60,60h14v60h-14zM106,60h14v60h-14zM74,83h32v14h-32z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M140,84h120v12h-120z" />
+</vector>
