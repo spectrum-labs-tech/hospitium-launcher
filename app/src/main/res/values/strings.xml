@@ -30,7 +30,7 @@
     <string name="wifi_network">Network: %1$s</string>
     <string name="wifi_password">Password: %1$s</string>
     <string name="row_featured">Watch</string>
-    <string name="row_announcements">From your host</string>
+    <string name="row_your_stay">Your stay</string>
     <string name="row_all_apps">All apps</string>
     <string name="row_house_rules">House rules</string>
     <string name="row_amenities">Amenities</string>

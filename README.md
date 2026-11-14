@@ -49,6 +49,14 @@ You need JDK 21 and the Android SDK command-line tools. Android Studio is option
 task check     # Android lint, unit tests, debug and release APKs (what CI runs)
 task install   # build, install and open on a TV or emulator connected over adb
 task reset     # forget the server, pairing and cache on the connected device
+task emulator  # start the Android TV emulator (see below for creating it once)
+```
+
+To create the emulator once (needs the Windows Hypervisor Platform feature on Windows, or KVM on Linux):
+
+```bash
+sdkmanager "emulator" "system-images;android-36;google-tv;x86_64"   # or: android sdk install ...
+avdmanager create avd -n hospitium-tv -k "system-images;android-36;google-tv;x86_64" -d tv_1080p
 ```
 
 The debug build accepts `http://10.0.2.2:<port>` as the server address, which reaches a control plane on your machine from the Android TV emulator.
@@ -59,7 +67,9 @@ Pushing a tag `vMAJOR.MINOR.PATCH` publishes an **unsigned** release APK and its
 
 ## Status
 
-Built and unit-tested against the v1 protocol. Testing on real Google TV hardware hasn't started yet.
+- **Unit-tested** against the v1 protocol (38 JVM tests).
+- **Emulator-verified** (Google TV system image, API 36, against a local control plane): setup, pairing, the home screen, D-pad navigation, launching an app and returning with Back, the offline cache with recovery, and a correct pairing countdown and guest view with the TV clock 28 hours behind.
+- **Not yet tested on real Google TV hardware.**
 
 ## License
 

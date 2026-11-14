@@ -27,7 +27,11 @@ sealed interface LauncherState {
     /** No control-plane address yet: the setup screen. */
     data class NeedsServer(val suggested: String, val error: String? = null) : LauncherState
 
-    /** Showing a pairing code (null while one is being requested) for an administrator to claim. */
+    /**
+     * Showing a pairing code (null while one is being requested) for an administrator to claim.
+     * [expiresAt] is on the TV's OWN clock, translated from the server's, so a countdown is right
+     * even when the TV's clock is wrong.
+     */
     data class Pairing(
         val serverUrl: String,
         val code: String? = null,
@@ -117,9 +121,10 @@ class LauncherController(
             }
             failures = 0
             problem = null
+            val localExpiry = localDeadline(start.expiresAt, start.serverDate)
             var pollFailures = 0
             poll@ while (true) {
-                _state.value = LauncherState.Pairing(url, start.code, start.expiresAt, problem ?: notice)
+                _state.value = LauncherState.Pairing(url, start.code, localExpiry, problem ?: notice)
                 pause(if (pollFailures == 0) PAIRING_POLL else Backoff.afterFailures(pollFailures, PAIRING_POLL, PAIRING_RETRY_MAX))
                 val res = try {
                     api.pairingStatus(start.code, start.pollToken)
@@ -185,6 +190,13 @@ class LauncherController(
         }
     }
 
+    /** Translates a server-clock deadline to the local clock, bounded so a bad clock can't show nonsense. */
+    private fun localDeadline(serverDeadline: Instant, serverNow: Instant?): Instant {
+        val local = now()
+        val remaining = Duration.between(serverNow ?: local, serverDeadline)
+        return local.plus(remaining.coerceIn(Duration.ZERO, MAX_PAIRING_COUNTDOWN))
+    }
+
     /** Waits [d], or less if [refreshNow] is called. */
     private suspend fun pause(d: Duration) {
         withTimeoutOrNull(d.toMillis()) { wake.receive() }
@@ -204,5 +216,6 @@ class LauncherController(
         val REFRESH_RETRY: Duration = Duration.ofSeconds(15)
         val REFRESH_RETRY_MAX: Duration = Duration.ofMinutes(10)
         const val REVOKED_AFTER = 3
+        val MAX_PAIRING_COUNTDOWN: Duration = Duration.ofHours(1)
     }
 }

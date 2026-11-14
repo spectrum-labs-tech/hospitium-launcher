@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -49,6 +50,7 @@ class LauncherClientTest {
         respond = { 201 to """{"code":"ABC234","poll_token":"hsp_x","expires_at":"2026-11-12T15:15:00Z"}""" }
         val r = client.startPairing()
         assertEquals("ABC234", r.code)
+        assertNotNull("the server's Date header is captured", r.serverDate)
         assertEquals(Seen("POST", "/v1/launcher/pairings", null, "test-agent/1"), seen.single())
     }
 

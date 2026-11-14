@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -50,109 +49,118 @@ import java.time.format.FormatStyle
 
 private val Dim = Color.White.copy(alpha = 0.7f)
 
+// Overscan-safe side margin. Rows apply it as content padding, so a focused (scaled) card
+// at either end grows into the margin instead of being clipped by the row.
+private val Gutter = 48.dp
+private val RowPadding = PaddingValues(horizontal = Gutter, vertical = 8.dp)
+
+/** A non-app card in the "Your stay" row. */
+private data class StayCard(val key: String, val title: String, val lines: List<String>)
+
+// TV layouts are designed on a 960x540dp canvas; 48dp/27dp keeps content inside overscan.
 @Composable
 fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now: Instant, onLaunch: (String) -> Unit) {
     BackHandler { /* this IS home: Back has nowhere to go */ }
 
     val config = cached.config
-    val view = HomePolicy.view(config, Clocks(now, Duration.ofMillis(cached.offsetMillis)))
+    val clocks = Clocks(now, Duration.ofMillis(cached.offsetMillis))
+    val view = HomePolicy.view(config, clocks)
     val zone = remember(config.property.timezone) { runCatching { ZoneId.of(config.property.timezone) }.getOrDefault(ZoneId.systemDefault()) }
     val time = remember(zone) { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withZone(zone) }
     val dateTime = remember(zone) { DateTimeFormatter.ofPattern("EEE, MMM d · h:mm a").withZone(zone) }
     val featured = remember(config.apps, installed) { AppCatalog.featured(config.apps, installed) }
-    val firstApp = remember { FocusRequester() }
-    LaunchedEffect(featured.isNotEmpty() || installed.isNotEmpty()) { runCatching { firstApp.requestFocus() } }
+
+    val wifi = config.property.wifi
+    val wifiTitle = stringResource(R.string.wifi_title)
+    val wifiNetwork = wifi?.let { stringResource(R.string.wifi_network, it.ssid) }
+    val wifiPassword = wifi?.password?.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.wifi_password, it) }
+    val rulesTitle = stringResource(R.string.row_house_rules)
+    val amenitiesTitle = stringResource(R.string.row_amenities)
+    val stay = buildList {
+        view.announcements.forEach { add(StayCard("a-${it.id}", it.title, listOf(it.body))) }
+        if (wifiNetwork != null) add(StayCard("wifi", wifiTitle, listOfNotNull(wifiNetwork, wifiPassword)))
+        if (config.property.houseRules.isNotEmpty()) add(StayCard("rules", rulesTitle, config.property.houseRules))
+        if (config.property.amenities.isNotEmpty()) add(StayCard("amenities", amenitiesTitle, config.property.amenities))
+    }
+
+    // Initial focus goes to the first card of the topmost row, which is always on screen.
+    val firstFocus = remember { FocusRequester() }
+    val focusRow = when {
+        featured.isNotEmpty() -> 0
+        stay.isNotEmpty() -> 1
+        else -> 2
+    }
+    val focusReady = featured.isNotEmpty() || stay.isNotEmpty() || installed.isNotEmpty()
+    LaunchedEffect(focusRow, focusReady) { if (focusReady) runCatching { firstFocus.requestFocus() } }
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 58.dp, vertical = 36.dp),
-        verticalArrangement = Arrangement.spacedBy(28.dp),
+        contentPadding = PaddingValues(vertical = 27.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = Gutter), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(config.property.name, style = MaterialTheme.typography.titleLarge, color = Dim)
-                    config.unit?.let { Text(it.name, style = MaterialTheme.typography.bodyMedium, color = Dim) }
+                    Text(config.property.name, style = MaterialTheme.typography.titleMedium, color = Dim)
+                    config.unit?.let { Text(it.name, style = MaterialTheme.typography.bodySmall, color = Dim) }
                 }
                 if (stale) {
                     Text(
                         stringResource(R.string.stale),
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.labelMedium,
                         color = Color.Black,
-                        modifier = Modifier.background(Accent, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.background(Accent, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 4.dp),
                     )
-                    Spacer(Modifier.width(24.dp))
+                    Spacer(Modifier.width(16.dp))
                 }
-                Text(time.format(Clocks(now, Duration.ofMillis(cached.offsetMillis)).corrected), style = MaterialTheme.typography.headlineMedium, color = Color.White)
+                Text(time.format(clocks.corrected), style = MaterialTheme.typography.titleLarge, color = Color.White)
             }
         }
 
         item {
-            Column {
+            Column(Modifier.padding(horizontal = Gutter)) {
                 val guest = view.guest
                 Text(
                     if (guest != null) stringResource(R.string.welcome_guest, guest.displayName) else stringResource(R.string.welcome),
-                    style = MaterialTheme.typography.displayMedium,
+                    style = MaterialTheme.typography.displaySmall,
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (guest != null) {
-                    Text(stringResource(R.string.stay_until, dateTime.format(guest.checkOut)), style = MaterialTheme.typography.titleLarge, color = Dim)
+                    Text(stringResource(R.string.stay_until, dateTime.format(guest.checkOut)), style = MaterialTheme.typography.titleMedium, color = Dim)
                 }
                 if (view.showCheckoutReminder && guest != null) {
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(10.dp))
                     Text(
                         stringResource(R.string.checkout_reminder, time.format(guest.checkOut)),
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleSmall,
                         color = Color.Black,
-                        modifier = Modifier.background(Accent, RoundedCornerShape(12.dp)).padding(horizontal = 20.dp, vertical = 12.dp),
+                        modifier = Modifier.background(Accent, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
                     )
                 }
             }
         }
 
         if (featured.isNotEmpty()) {
-            item { AppRow(stringResource(R.string.row_featured), featured, onLaunch, firstApp) }
+            item { AppRow(stringResource(R.string.row_featured), featured, onLaunch, firstFocus.takeIf { focusRow == 0 }) }
         }
 
-        if (view.announcements.isNotEmpty()) {
+        if (stay.isNotEmpty()) {
             item {
-                Section(stringResource(R.string.row_announcements)) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        items(view.announcements, key = { it.id }) { a -> InfoCard(a.title, listOf(a.body)) }
-                    }
-                }
-            }
-        }
-
-        val wifi = config.property.wifi
-        if (wifi != null || config.property.houseRules.isNotEmpty() || config.property.amenities.isNotEmpty()) {
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    if (wifi != null) {
-                        item {
-                            InfoCard(
-                                stringResource(R.string.wifi_title),
-                                listOfNotNull(
-                                    stringResource(R.string.wifi_network, wifi.ssid),
-                                    wifi.password?.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.wifi_password, it) },
-                                ),
-                            )
+                Section(stringResource(R.string.row_your_stay)) {
+                    LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        itemsIndexed(stay, key = { _, c -> c.key }) { i, c ->
+                            val m = if (i == 0 && focusRow == 1) Modifier.focusRequester(firstFocus) else Modifier
+                            InfoCard(c.title, c.lines, m)
                         }
-                    }
-                    if (config.property.houseRules.isNotEmpty()) {
-                        item { InfoCard(stringResource(R.string.row_house_rules), config.property.houseRules) }
-                    }
-                    if (config.property.amenities.isNotEmpty()) {
-                        item { InfoCard(stringResource(R.string.row_amenities), config.property.amenities) }
                     }
                 }
             }
         }
 
         if (installed.isNotEmpty()) {
-            item { AppRow(stringResource(R.string.row_all_apps), installed, onLaunch, if (featured.isEmpty()) firstApp else null) }
+            item { AppRow(stringResource(R.string.row_all_apps), installed, onLaunch, firstFocus.takeIf { focusRow == 2 }) }
         }
     }
 }
@@ -160,8 +168,8 @@ fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     Column {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = Dim)
-        Spacer(Modifier.height(12.dp))
+        Text(title, style = MaterialTheme.typography.titleSmall, color = Dim, modifier = Modifier.padding(horizontal = Gutter))
+        Spacer(Modifier.height(8.dp))
         content()
     }
 }
@@ -169,10 +177,10 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 @Composable
 private fun AppRow(title: String, apps: List<TvApp>, onLaunch: (String) -> Unit, firstFocus: FocusRequester?) {
     Section(title) {
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             itemsIndexed(apps, key = { _, a -> a.packageName }) { i, app ->
                 val m = if (i == 0 && firstFocus != null) Modifier.focusRequester(firstFocus) else Modifier
-                Card(onClick = { onLaunch(app.packageName) }, modifier = m.size(width = 224.dp, height = 126.dp)) {
+                Card(onClick = { onLaunch(app.packageName) }, modifier = m.size(width = 160.dp, height = 90.dp)) {
                     AppTile(app)
                 }
             }
@@ -187,24 +195,24 @@ private fun AppTile(app: TvApp) {
         when {
             bmp != null && app.hasBanner -> Image(bmp.asImageBitmap(), app.label, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             bmp != null -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(bmp.asImageBitmap(), null, Modifier.size(56.dp))
-                Spacer(Modifier.height(8.dp))
-                Text(app.label, style = MaterialTheme.typography.labelLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Image(bmp.asImageBitmap(), null, Modifier.size(36.dp))
+                Spacer(Modifier.height(4.dp))
+                Text(app.label, style = MaterialTheme.typography.labelMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            else -> Text(app.label, style = MaterialTheme.typography.titleMedium, color = Color.White)
+            else -> Text(app.label, style = MaterialTheme.typography.titleSmall, color = Color.White)
         }
     }
 }
 
 /** Focusable (so the D-pad can reach and scroll to it) but does nothing when clicked. */
 @Composable
-private fun InfoCard(title: String, lines: List<String>) {
-    Card(onClick = {}, modifier = Modifier.width(380.dp).height(200.dp)) {
-        Column(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.08f)).padding(20.dp)) {
-            Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(8.dp))
-            for (line in lines.take(5)) {
-                Text(line, style = MaterialTheme.typography.bodyLarge, color = Dim, maxLines = 2, overflow = TextOverflow.Ellipsis)
+private fun InfoCard(title: String, lines: List<String>, modifier: Modifier = Modifier) {
+    Card(onClick = {}, modifier = modifier.width(240.dp).height(120.dp)) {
+        Column(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.08f)).padding(12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(4.dp))
+            for (line in lines.take(4)) {
+                Text(line, style = MaterialTheme.typography.bodySmall, color = Dim, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
     }

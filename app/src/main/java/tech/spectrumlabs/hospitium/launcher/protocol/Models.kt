@@ -7,6 +7,7 @@ package tech.spectrumlabs.hospitium.launcher.protocol
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -48,6 +49,12 @@ data class PairingStartResponse(
     val code: String,
     @SerialName("poll_token") val pollToken: String,
     @SerialName("expires_at") val expiresAt: Time,
+    /**
+     * Not on the wire: the server's clock from the HTTP Date header, set by the client. The pairing
+     * response carries no server time, and [expiresAt] is on the server's clock, so a TV with a
+     * wrong clock needs this to show an honest countdown.
+     */
+    @Transient val serverDate: Instant? = null,
 )
 
 @Serializable

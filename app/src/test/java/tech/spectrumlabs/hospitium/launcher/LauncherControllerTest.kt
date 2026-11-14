@@ -88,6 +88,18 @@ class LauncherControllerTest {
     }
 
     @Test
+    fun `the countdown is right even when the TV clock is a day behind`() = runTest {
+        // Server: now is T0, the code expires at T0+15m. The TV's clock says T0-28h.
+        api.starts += { code("ABC234").copy(serverDate = T0) }
+        api.statuses += { PairingStatusResponse("pending") }
+        val tvNow = T0.minus(Duration.ofHours(28))
+        val c = LauncherController(backgroundScope, InMemoryDeviceStore(url = "https://h.example"), { api }, now = { tvNow })
+        c.start(); runCurrent()
+        val s = c.state.value as LauncherState.Pairing
+        assertEquals(Duration.ofMinutes(15), Duration.between(tvNow, s.expiresAt))
+    }
+
+    @Test
     fun `an expired code is replaced with a new one`() = runTest {
         api.starts += { code("AAAAAA") }
         api.starts += { code("BBBBBB") }

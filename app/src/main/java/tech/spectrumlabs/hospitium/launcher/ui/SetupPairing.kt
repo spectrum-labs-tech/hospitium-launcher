@@ -57,39 +57,39 @@ fun SetupScreen(state: LauncherState.NeedsServer, onSubmit: (String) -> Unit) {
     val field = remember { FocusRequester() }
     LaunchedEffect(Unit) { field.requestFocus() }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 72.dp), verticalArrangement = Arrangement.Center) {
-        Text(stringResource(R.string.setup_title), style = MaterialTheme.typography.displaySmall, color = Color.White)
-        Spacer(Modifier.height(16.dp))
-        Text(stringResource(R.string.setup_body), style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.8f))
-        Spacer(Modifier.height(32.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 27.dp), verticalArrangement = Arrangement.Center) {
+        Text(stringResource(R.string.setup_title), style = MaterialTheme.typography.headlineLarge, color = Color.White)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.setup_body), style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.8f))
+        Spacer(Modifier.height(20.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
-                    .width(640.dp)
-                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                    .border(BorderStroke(2.dp, if (focused) Accent else Color.White.copy(alpha = 0.3f)), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .width(420.dp)
+                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                    .border(BorderStroke(2.dp, if (focused) Accent else Color.White.copy(alpha = 0.3f)), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
             ) {
                 if (text.isEmpty()) {
-                    Text(stringResource(R.string.setup_hint), style = MaterialTheme.typography.titleLarge, color = Color.White.copy(alpha = 0.4f))
+                    Text(stringResource(R.string.setup_hint), style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.4f))
                 }
                 BasicTextField(
                     value = text,
                     onValueChange = { text = it },
                     singleLine = true,
-                    textStyle = TextStyle(color = Color.White, fontSize = 22.sp),
+                    textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
                     cursorBrush = SolidColor(Accent),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done, autoCorrectEnabled = false),
                     keyboardActions = KeyboardActions(onDone = { onSubmit(text) }),
                     modifier = Modifier.focusRequester(field).onFocusChanged { focused = it.isFocused },
                 )
             }
-            Spacer(Modifier.width(24.dp))
+            Spacer(Modifier.width(16.dp))
             Button(onClick = { onSubmit(text) }) { Text(stringResource(R.string.setup_connect)) }
         }
         state.error?.let {
-            Spacer(Modifier.height(16.dp))
-            Text(it, style = MaterialTheme.typography.titleMedium, color = Color(0xFFFFB4AB))
+            Spacer(Modifier.height(12.dp))
+            Text(it, style = MaterialTheme.typography.bodyLarge, color = Color(0xFFFFB4AB))
         }
     }
 }
@@ -97,40 +97,37 @@ fun SetupScreen(state: LauncherState.NeedsServer, onSubmit: (String) -> Unit) {
 @Composable
 fun PairingScreen(state: LauncherState.Pairing, now: Instant, onChangeServer: () -> Unit) {
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 96.dp, vertical = 72.dp),
+        Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 27.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(R.string.pairing_title), style = MaterialTheme.typography.displaySmall, color = Color.White)
-        Spacer(Modifier.height(16.dp))
-        Text(stringResource(R.string.pairing_body), style = MaterialTheme.typography.titleLarge, color = Color.White.copy(alpha = 0.8f))
-        Spacer(Modifier.height(48.dp))
+        Text(stringResource(R.string.pairing_title), style = MaterialTheme.typography.headlineLarge, color = Color.White)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.pairing_body), style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.8f))
+        Spacer(Modifier.height(28.dp))
         val code = state.code
         if (code == null) {
-            Text(stringResource(R.string.pairing_requesting), style = MaterialTheme.typography.headlineMedium, color = Color.White)
+            Text(stringResource(R.string.pairing_requesting), style = MaterialTheme.typography.headlineSmall, color = Color.White)
         } else {
             // Spaced, monospaced, large: read from across a room. The alphabet has no 0/O/1/I.
-            Text(
-                code.chunked(3).joinToString("  "),
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 120.sp,
-                letterSpacing = 16.sp,
-                color = Accent,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                for (half in code.chunked(3)) {
+                    Text(half, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, fontSize = 72.sp, letterSpacing = 6.sp, color = Accent)
+                }
+            }
             state.expiresAt?.let { exp ->
                 val minutes = Duration.between(now, exp).toMinutes().coerceAtLeast(0) + 1
-                Spacer(Modifier.height(16.dp))
-                Text(stringResource(R.string.pairing_expires, minutes), style = MaterialTheme.typography.titleMedium, color = Color.White.copy(alpha = 0.7f))
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.pairing_expires, minutes), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.7f))
             }
         }
         state.problem?.let {
-            Spacer(Modifier.height(24.dp))
-            Text(problemText(it), style = MaterialTheme.typography.titleMedium, color = Color(0xFFFFB4AB))
+            Spacer(Modifier.height(12.dp))
+            Text(problemText(it), style = MaterialTheme.typography.bodyLarge, color = Color(0xFFFFB4AB))
         }
-        Spacer(Modifier.height(48.dp))
-        Text(stringResource(R.string.pairing_server, state.serverUrl), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.5f))
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(28.dp))
+        Text(stringResource(R.string.pairing_server, state.serverUrl), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.5f))
+        Spacer(Modifier.height(8.dp))
         OutlinedButton(onClick = onChangeServer) { Text(stringResource(R.string.pairing_change_server)) }
     }
 }

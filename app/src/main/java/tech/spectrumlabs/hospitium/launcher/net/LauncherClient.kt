@@ -15,6 +15,7 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLEncoder
 import java.time.DateTimeException
+import java.time.Instant
 
 /** Why a call failed. Never carries a token or a response body. */
 sealed class ApiException(message: String, cause: Throwable? = null) : Exception(message, cause) {
@@ -48,16 +49,18 @@ class LauncherClient(
     private val timeoutMillis: Int = 15_000,
 ) : LauncherApi {
 
-    override suspend fun startPairing(): PairingStartResponse =
-        decode(PairingStartResponse.serializer(), call("POST", Paths.PAIRING_START, null))
+    override suspend fun startPairing(): PairingStartResponse {
+        val (body, date) = call("POST", Paths.PAIRING_START, null)
+        return decode(PairingStartResponse.serializer(), body).copy(serverDate = date)
+    }
 
     override suspend fun pairingStatus(code: String, pollToken: String): PairingStatusResponse {
         val path = Paths.PAIRING_STATUS + URLEncoder.encode(code, "UTF-8")
-        return decode(PairingStatusResponse.serializer(), call("GET", path, pollToken))
+        return decode(PairingStatusResponse.serializer(), call("GET", path, pollToken).first)
     }
 
     override suspend fun config(deviceToken: String): LauncherConfig =
-        decode(LauncherConfig.serializer(), call("GET", Paths.CONFIG, deviceToken))
+        decode(LauncherConfig.serializer(), call("GET", Paths.CONFIG, deviceToken).first)
 
     private fun <T> decode(serializer: KSerializer<T>, body: String): T = try {
         ProtocolJson.decodeFromString(serializer, body)
@@ -67,7 +70,8 @@ class LauncherClient(
         throw ApiException.Malformed(e)
     }
 
-    private suspend fun call(method: String, path: String, bearer: String?): String = withContext(Dispatchers.IO) {
+    /** The body and the server's Date header (null if absent). */
+    private suspend fun call(method: String, path: String, bearer: String?): Pair<String, Instant?> = withContext(Dispatchers.IO) {
         val conn = try {
             URI(baseUrl.trimEnd('/') + path).toURL().openConnection() as HttpURLConnection
         } catch (e: IOException) {
@@ -92,7 +96,8 @@ class LauncherClient(
                 status == 401 -> throw ApiException.Unauthorized()
                 status !in 200..299 -> throw ApiException.Http(status)
             }
-            conn.inputStream.bufferedReader().use { it.readText() }
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            body to conn.date.takeIf { it > 0 }?.let(Instant::ofEpochMilli)
         } catch (e: IOException) {
             throw ApiException.Network(e)
         } finally {

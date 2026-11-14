@@ -25,6 +25,10 @@ tasks:
     desc: Follow the launcher's log on the connected device
     cmd: adb logcat --pid=$(adb shell pidof -s tech.spectrumlabs.hospitium.launcher)
 
+  emulator:
+    desc: Start the Android TV emulator created as hospitium-tv (see README)
+    cmd: emulator -avd hospitium-tv -no-snapshot-save -no-boot-anim
+
   reset:
     desc: Clear the launcher's data on the connected device (forgets server, pairing and cache)
     cmd: adb shell pm clear tech.spectrumlabs.hospitium.launcher
