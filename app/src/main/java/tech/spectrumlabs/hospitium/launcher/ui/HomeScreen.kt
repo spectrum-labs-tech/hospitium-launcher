@@ -5,8 +5,10 @@ package tech.spectrumlabs.hospitium.launcher.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,15 +16,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +43,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.tv.material3.Button
 import androidx.tv.material3.Card
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -93,6 +104,11 @@ fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now
     val focusReady = featured.isNotEmpty() || stay.isNotEmpty() || installed.isNotEmpty()
     LaunchedEffect(focusRow, focusReady) { if (focusReady) runCatching { firstFocus.requestFocus() } }
 
+    var opened by remember { mutableStateOf<StayCard?>(null) }
+    opened?.let { card -> StayDetails(card, onDismiss = { opened = null }) }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    val sizes = LayoutSizes.forWidth(maxWidth.value)
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(vertical = 27.dp),
@@ -124,7 +140,7 @@ fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now
                     if (guest != null) stringResource(R.string.welcome_guest, guest.displayName) else stringResource(R.string.welcome),
                     style = MaterialTheme.typography.displaySmall,
                     color = Color.White,
-                    maxLines = 1,
+                    maxLines = 2, // a long name at a large font size wraps rather than vanishing into "…"
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (guest != null) {
@@ -143,16 +159,20 @@ fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now
         }
 
         if (featured.isNotEmpty()) {
-            item { AppRow(stringResource(R.string.row_featured), featured, onLaunch, firstFocus.takeIf { focusRow == 0 }) }
+            item { AppRow(stringResource(R.string.row_featured), featured, sizes, onLaunch, firstFocus.takeIf { focusRow == 0 }) }
         }
 
         if (stay.isNotEmpty()) {
             item {
                 Section(stringResource(R.string.row_your_stay)) {
-                    LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    LazyRow(
+                        contentPadding = RowPadding,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.Top,
+                    ) {
                         itemsIndexed(stay, key = { _, c -> c.key }) { i, c ->
                             val m = if (i == 0 && focusRow == 1) Modifier.focusRequester(firstFocus) else Modifier
-                            InfoCard(c.title, c.lines, m)
+                            InfoCard(c, sizes, onOpen = { opened = c }, modifier = m)
                         }
                     }
                 }
@@ -160,8 +180,9 @@ fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now
         }
 
         if (installed.isNotEmpty()) {
-            item { AppRow(stringResource(R.string.row_all_apps), installed, onLaunch, firstFocus.takeIf { focusRow == 2 }) }
+            item { AppRow(stringResource(R.string.row_all_apps), installed, sizes, onLaunch, firstFocus.takeIf { focusRow == 2 }) }
         }
+    }
     }
 }
 
@@ -175,12 +196,12 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun AppRow(title: String, apps: List<TvApp>, onLaunch: (String) -> Unit, firstFocus: FocusRequester?) {
+private fun AppRow(title: String, apps: List<TvApp>, sizes: LayoutSizes, onLaunch: (String) -> Unit, firstFocus: FocusRequester?) {
     Section(title) {
         LazyRow(contentPadding = RowPadding, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             itemsIndexed(apps, key = { _, a -> a.packageName }) { i, app ->
                 val m = if (i == 0 && firstFocus != null) Modifier.focusRequester(firstFocus) else Modifier
-                Card(onClick = { onLaunch(app.packageName) }, modifier = m.size(width = 160.dp, height = 90.dp)) {
+                Card(onClick = { onLaunch(app.packageName) }, modifier = m.size(width = sizes.appTileWidth, height = sizes.appTileHeight)) {
                     AppTile(app)
                 }
             }
@@ -204,16 +225,74 @@ private fun AppTile(app: TvApp) {
     }
 }
 
-/** Focusable (so the D-pad can reach and scroll to it) but does nothing when clicked. */
+/**
+ * Grows with its text between a minimum and a maximum height, so a short note and a long one sit
+ * in the same row. When the text doesn't fit, it says so, and OK opens [StayDetails] with all of it.
+ */
 @Composable
-private fun InfoCard(title: String, lines: List<String>, modifier: Modifier = Modifier) {
-    Card(onClick = {}, modifier = modifier.width(240.dp).height(120.dp)) {
-        Column(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.08f)).padding(12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun InfoCard(card: StayCard, sizes: LayoutSizes, onOpen: () -> Unit, modifier: Modifier = Modifier) {
+    var clipped by remember(card) { mutableStateOf(card.lines.size > MAX_CARD_LINES) }
+    Card(
+        onClick = onOpen,
+        modifier = modifier.width(sizes.infoCardWidth).heightIn(min = sizes.infoCardMinHeight, max = sizes.infoCardMaxHeight),
+    ) {
+        // No inner background: the card's own surface fills it at whatever height the text needs.
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(
+                card.title,
+                style = MaterialTheme.typography.titleSmall,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { if (it.hasVisualOverflow) clipped = true },
+            )
             Spacer(Modifier.height(4.dp))
-            for (line in lines.take(4)) {
-                Text(line, style = MaterialTheme.typography.bodySmall, color = Dim, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            for (line in card.lines.take(MAX_CARD_LINES)) {
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Dim,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { if (it.hasVisualOverflow) clipped = true },
+                )
+            }
+            if (clipped) {
+                Spacer(Modifier.height(6.dp))
+                Text(stringResource(R.string.more), style = MaterialTheme.typography.labelSmall, color = Accent)
             }
         }
     }
+}
+
+private const val MAX_CARD_LINES = 4
+
+/** The whole card, scrollable, over the home screen. Back or Close dismisses it. */
+@Composable
+private fun StayDetails(card: StayCard, onDismiss: () -> Unit) {
+    val close = remember { FocusRequester() }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .widthIn(max = 560.dp)
+                .heightIn(max = 420.dp)
+                .background(Ink, RoundedCornerShape(16.dp))
+                .padding(24.dp),
+        ) {
+            Text(card.title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
+            Spacer(Modifier.height(12.dp))
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                // Each line is focusable so the D-pad moves through long text; focus brings it into view.
+                for (line in card.lines) {
+                    Text(line, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.focusable())
+                    Spacer(Modifier.height(6.dp))
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = onDismiss, modifier = Modifier.align(Alignment.End).focusRequester(close)) {
+                Text(stringResource(R.string.close))
+            }
+        }
+    }
+    LaunchedEffect(card) { runCatching { close.requestFocus() } }
 }

@@ -34,4 +34,6 @@
     <string name="row_all_apps">All apps</string>
     <string name="row_house_rules">House rules</string>
     <string name="row_amenities">Amenities</string>
+    <string name="more">Press OK to read more</string>
+    <string name="close">Close</string>
 </resources>

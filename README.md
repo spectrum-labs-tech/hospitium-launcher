@@ -69,6 +69,7 @@ Pushing a tag `vMAJOR.MINOR.PATCH` publishes an **unsigned** release APK and its
 
 - **Unit-tested** against the v1 protocol (38 JVM tests).
 - **Emulator-verified** (Google TV system image, API 36, against a local control plane): setup, pairing, the home screen, D-pad navigation, launching an app and returning with Back, the offline cache with recovery, and a correct pairing countdown and guest view with the TV clock 28 hours behind.
+- **Screen sizes:** layouts use the TV's ~960x540dp canvas, so 720p, 1080p and 4K look the same, only sharper. Card and tile sizes also follow the available width within bounds (checked on the emulator at 4:3 and ultrawide), and text follows the viewer's font-size setting (checked at 130%). Cards grow with their text; a card that still can't fit says so, and OK opens the full text.
 - **Not yet tested on real Google TV hardware.**
 
 ## License
