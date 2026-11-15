@@ -21,6 +21,15 @@ object Paths {
     const val PAIRING_START = "/v1/launcher/pairings"
     const val PAIRING_STATUS = "/v1/launcher/pairings/" // + code
     const val CONFIG = "/v1/launcher/config"
+    const val MEDIA = "/v1/launcher/media/" // + lowercase hex SHA-256
+}
+
+/** Keys of PropertyInfo.branding (protocol v1 Branding* constants). */
+object Branding {
+    const val PRIMARY_COLOR = "primary_color"
+    const val BACKGROUND_URL = "background_url" // 1920x1080, a same-origin media path
+    const val BACKGROUND_URL_2160 = "background_url_2160" // 3840x2160, when one exists
+    const val BACKGROUND_SCRIM = "background_scrim" // "0.30".."0.80"
 }
 
 object PairingStatus {

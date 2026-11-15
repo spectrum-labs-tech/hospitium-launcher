@@ -66,6 +66,22 @@ class LauncherController(
         job = scope.launch { run() }
     }
 
+    /**
+     * Downloads a media path with this TV's token, or null when unpaired or the download fails
+     * (the screen then keeps its brand color). The token never leaves the controller.
+     */
+    suspend fun media(path: String): ByteArray? {
+        val url = store.serverUrl() ?: return null
+        val token = store.deviceToken() ?: return null
+        return try {
+            apiFor(url).media(path, token)
+        } catch (_: ApiException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
     /** Refresh immediately (e.g. the TV woke from standby) instead of waiting out the interval. */
     fun refreshNow() {
         wake.trySend(Unit)

@@ -5,6 +5,7 @@ package tech.spectrumlabs.hospitium.launcher.net
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
+import tech.spectrumlabs.hospitium.launcher.domain.Backgrounds
 import tech.spectrumlabs.hospitium.launcher.protocol.LauncherConfig
 import tech.spectrumlabs.hospitium.launcher.protocol.PairingStartResponse
 import tech.spectrumlabs.hospitium.launcher.protocol.PairingStatusResponse
@@ -32,11 +33,17 @@ sealed class ApiException(message: String, cause: Throwable? = null) : Exception
     class Malformed(cause: Throwable) : ApiException("malformed response", cause)
 }
 
-/** The launcher's three calls (hospitium-protocol v1). The device never needs anything else. */
+/** The launcher's calls (hospitium-protocol v1). The device never needs anything else. */
 interface LauncherApi {
     suspend fun startPairing(): PairingStartResponse
     suspend fun pairingStatus(code: String, pollToken: String): PairingStatusResponse
     suspend fun config(deviceToken: String): LauncherConfig
+
+    /**
+     * An image by its media path (Backgrounds.MEDIA_PATH only: anything else is refused before a
+     * request is made, so the device token can't be sent to an arbitrary path or host).
+     */
+    suspend fun media(path: String, deviceToken: String): ByteArray
 }
 
 /**
@@ -62,8 +69,14 @@ class LauncherClient(
     override suspend fun config(deviceToken: String): LauncherConfig =
         decode(LauncherConfig.serializer(), call("GET", Paths.CONFIG, deviceToken).first)
 
-    private fun <T> decode(serializer: KSerializer<T>, body: String): T = try {
-        ProtocolJson.decodeFromString(serializer, body)
+    override suspend fun media(path: String, deviceToken: String): ByteArray {
+        require(Backgrounds.MEDIA_PATH.matches(path)) { "not a media path" }
+        return call("GET", path, deviceToken, accept = "image/jpeg").first
+    }
+
+    private fun <T> decode(serializer: KSerializer<T>, bytes: ByteArray): T = try {
+        if (bytes.isEmpty()) throw IllegalArgumentException("empty body")
+        ProtocolJson.decodeFromString(serializer, String(bytes, Charsets.UTF_8))
     } catch (e: IllegalArgumentException) { // SerializationException is one
         throw ApiException.Malformed(e)
     } catch (e: DateTimeException) {
@@ -71,7 +84,12 @@ class LauncherClient(
     }
 
     /** The body and the server's Date header (null if absent). */
-    private suspend fun call(method: String, path: String, bearer: String?): Pair<String, Instant?> = withContext(Dispatchers.IO) {
+    private suspend fun call(
+        method: String,
+        path: String,
+        bearer: String?,
+        accept: String = "application/json",
+    ): Pair<ByteArray, Instant?> = withContext(Dispatchers.IO) {
         val conn = try {
             URI(baseUrl.trimEnd('/') + path).toURL().openConnection() as HttpURLConnection
         } catch (e: IOException) {
@@ -83,7 +101,7 @@ class LauncherClient(
             conn.readTimeout = timeoutMillis
             conn.instanceFollowRedirects = false // a redirect could carry the bearer token elsewhere
             conn.useCaches = false
-            conn.setRequestProperty("Accept", "application/json")
+            conn.setRequestProperty("Accept", accept)
             conn.setRequestProperty("User-Agent", userAgent)
             if (bearer != null) conn.setRequestProperty("Authorization", "Bearer $bearer")
             if (method == "POST") {
@@ -96,7 +114,7 @@ class LauncherClient(
                 status == 401 -> throw ApiException.Unauthorized()
                 status !in 200..299 -> throw ApiException.Http(status)
             }
-            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val body = conn.inputStream.use { it.readBytes() }
             body to conn.date.takeIf { it > 0 }?.let(Instant::ofEpochMilli)
         } catch (e: IOException) {
             throw ApiException.Network(e)

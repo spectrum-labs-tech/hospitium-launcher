@@ -37,6 +37,7 @@ private class FakeApi : LauncherApi {
         calls += "status $code $pollToken"; return next(statuses)
     }
     override suspend fun config(deviceToken: String): LauncherConfig { calls += "config $deviceToken"; return next(configs) }
+    override suspend fun media(path: String, deviceToken: String): ByteArray { calls += "media $path $deviceToken"; return ByteArray(0) }
 }
 
 private fun code(c: String) = PairingStartResponse(c, "hsp_$c", T0.plus(Duration.ofMinutes(15)))

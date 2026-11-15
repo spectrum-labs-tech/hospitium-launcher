@@ -2,6 +2,7 @@
 
 package tech.spectrumlabs.hospitium.launcher.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,7 +14,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.MaterialTheme
@@ -51,6 +54,7 @@ fun rememberNow(periodMillis: Long = 15_000): Instant {
 fun LauncherApp(vm: LauncherViewModel) {
     val state by vm.controller.state.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
+    val background by vm.background.collectAsStateWithLifecycle()
     val primary = (state as? LauncherState.Home)?.cached?.config?.property?.branding?.get("primary_color")
     val brand = brandColor(primary, Ink)
 
@@ -65,11 +69,38 @@ fun LauncherApp(vm: LauncherViewModel) {
                     if (cached == null) {
                         Centered(stringResource(R.string.connecting))
                     } else {
+                        background?.let { Backdrop(it) }
                         HomeScreen(cached, s.stale, apps, rememberNow(), onLaunch = { vm.launch(it) })
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * The photo behind the home screen, with a gradient scrim so text stays legible: darkest behind the
+ * welcome text (left) and the app rows (bottom). Its strength was measured from the photo at upload.
+ */
+@Composable
+fun Backdrop(bg: BackgroundImage) {
+    Box(Modifier.fillMaxSize()) {
+        Image(bg.bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        val dark = Color.Black
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(
+                    0f to dark.copy(alpha = bg.scrim),
+                    0.65f to dark.copy(alpha = bg.scrim * 0.45f),
+                    1f to dark.copy(alpha = bg.scrim * 0.15f),
+                ),
+            ),
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0.45f to Color.Transparent, 1f to dark.copy(alpha = bg.scrim * 0.8f)),
+            ),
+        )
     }
 }
 

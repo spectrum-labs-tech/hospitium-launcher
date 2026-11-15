@@ -78,6 +78,27 @@ class LauncherClientTest {
     }
 
     @Test
+    fun `media downloads bytes with the device token`() = runBlocking {
+        respond = { 200 to "ÿØjpeg" }
+        val path = "/v1/launcher/media/" + "c".repeat(64)
+        val bytes = client.media(path, "hsd_y")
+        assertTrue(bytes.isNotEmpty())
+        assertEquals(Seen("GET", path, "Bearer hsd_y", "test-agent/1"), seen.single())
+    }
+
+    @Test
+    fun `media refuses any other path before making a request`() = runBlocking {
+        for (bad in listOf("/v1/launcher/config", "https://evil.test/x.jpg", "/v1/launcher/media/short")) {
+            try {
+                client.media(bad, "hsd_secret")
+                fail("accepted $bad")
+            } catch (_: IllegalArgumentException) {
+            }
+        }
+        assertNull(seen.peek())
+    }
+
+    @Test
     fun `status codes map to typed failures`() = runBlocking {
         suspend fun failure(status: Int, body: String = """{"error":"x"}"""): ApiException {
             respond = { status to body }

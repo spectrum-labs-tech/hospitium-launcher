@@ -10,10 +10,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import tech.spectrumlabs.hospitium.launcher.BuildConfig
 import tech.spectrumlabs.hospitium.launcher.data.AndroidDeviceStore
+import tech.spectrumlabs.hospitium.launcher.domain.Backgrounds
 import tech.spectrumlabs.hospitium.launcher.domain.LauncherController
+import tech.spectrumlabs.hospitium.launcher.domain.LauncherState
 import tech.spectrumlabs.hospitium.launcher.net.LauncherClient
 import java.time.Instant
 
@@ -31,6 +37,31 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         defaultServerUrl = BuildConfig.DEFAULT_SERVER_URL,
         allowLocalHttp = BuildConfig.DEBUG,
     ).also { it.start() }
+
+    private val backgrounds = BackgroundLoader(app.cacheDir, controller::media)
+    private val _background = MutableStateFlow<BackgroundImage?>(null)
+
+    /** The home screen's photo, or null for the plain brand color (none chosen, or not loaded yet). */
+    val background: StateFlow<BackgroundImage?> = _background.asStateFlow()
+
+    init {
+        // Follow the config: load a background when a different one is chosen, drop it when removed.
+        viewModelScope.launch {
+            controller.state
+                .map { (it as? LauncherState.Home)?.cached?.config?.property?.branding }
+                .filterNotNull()
+                .map { Backgrounds.choose(it, app.resources.displayMetrics.widthPixels) }
+                .distinctUntilChanged()
+                .collectLatest { choice ->
+                    if (choice == null) {
+                        _background.value = null
+                    } else if (_background.value?.sha256 != choice.sha256) {
+                        val m = app.resources.displayMetrics
+                        backgrounds.load(choice, m.widthPixels, m.heightPixels)?.let { _background.value = it }
+                    }
+                }
+        }
+    }
 
     private val _apps = MutableStateFlow<List<TvApp>>(emptyList())
     val apps: StateFlow<List<TvApp>> = _apps.asStateFlow()
