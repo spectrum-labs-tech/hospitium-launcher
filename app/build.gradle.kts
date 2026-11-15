@@ -69,6 +69,7 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.serialization.json)
     implementation(libs.coroutines.android)
+    implementation(libs.qrcodegen)
     debugImplementation(libs.compose.ui.tooling)
 
     testImplementation(libs.junit)

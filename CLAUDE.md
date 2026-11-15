@@ -21,8 +21,9 @@ control plane speaking `hospitium-protocol` v1. Read `README.md`. `CONTRIBUTING.
 - **The logic is plain Kotlin** (`domain/`, `net/`, `protocol/`): unit-tested on the JVM with virtual
   time and a loopback HTTP server. Keep Android types out of it. UI code under `ui/` stays thin.
 - **Every Kotlin file and build script starts with** `// SPDX-License-Identifier: Apache-2.0`.
-- **Dependencies:** AndroidX, Compose for TV, kotlinx (serialization, coroutines) only. Justify any
-  other library. HTTP is the platform's `HttpURLConnection`.
+- **Dependencies:** AndroidX, Compose for TV, kotlinx (serialization, coroutines), and Project
+  Nayuki's QR generator (MIT; listed in `THIRD_PARTY_NOTICES.md`). Justify any other library, and add
+  its notice there. HTTP is the platform's `HttpURLConnection`.
 - **Label evidence honestly.** Emulator behavior isn't hardware behavior.
 
 ## Commands

@@ -2,7 +2,7 @@
 
 A guest home screen for Google TV and Android TV, for short-term rentals and small hotels. Licensed Apache-2.0.
 
-It shows a welcome with the guest's name, check-out time and reminder, Wi-Fi details, house rules, announcements from the host, and rows of the TV's streaming apps. It gets that content from a control plane that speaks [`hospitium-protocol`](https://github.com/spectrum-labs-tech/hospitium-protocol) (v1 launcher API), caches it, and keeps working offline.
+It shows a welcome with the guest's name, check-out time and reminder, Wi-Fi details with a QR code guests scan to join, a background photo, house rules, announcements from the host, and rows of the TV's streaming apps. It gets that content from a control plane that speaks [`hospitium-protocol`](https://github.com/spectrum-labs-tech/hospitium-protocol) (v1 launcher API), caches it, and keeps working offline.
 
 **Its only job is the guest screen.** Installing it, making it the home screen and clearing streaming sign-ins between guests are the job of [`hospitium-agent`](https://github.com/spectrum-labs-tech/hospitium-agent). The launcher never depends on the agent being there.
 
@@ -74,4 +74,4 @@ Pushing a tag `vMAJOR.MINOR.PATCH` publishes an **unsigned** release APK and its
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). Bundled third-party licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

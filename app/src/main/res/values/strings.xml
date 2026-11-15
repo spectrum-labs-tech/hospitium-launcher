@@ -29,6 +29,8 @@
     <string name="wifi_title">Wi-Fi</string>
     <string name="wifi_network">Network: %1$s</string>
     <string name="wifi_password">Password: %1$s</string>
+    <string name="wifi_qr_description">QR code to join the Wi-Fi</string>
+    <string name="wifi_qr_hint">Point your phone\'s camera at the code to join.</string>
     <string name="row_featured">Watch</string>
     <string name="row_your_stay">Your stay</string>
     <string name="row_all_apps">All apps</string>

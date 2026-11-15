@@ -15,7 +15,7 @@ CI runs the same checks. Tests must pass with no device and no network.
 - **Logic goes in plain Kotlin** (`domain/`, `net/`, `protocol/`) with unit tests. Compose code stays thin.
 - **Guest data and tokens are never logged.**
 - **Every Kotlin file and build script starts with** `// SPDX-License-Identifier: Apache-2.0`.
-- **Dependencies:** AndroidX, Compose for TV and kotlinx only. Justify anything else in the pull request.
+- **Dependencies:** AndroidX, Compose for TV, kotlinx and the QR generator only. Justify anything else in the pull request, and add its license to `THIRD_PARTY_NOTICES.md`.
 - Sign off your commits under the [Developer Certificate of Origin](https://developercertificate.org/) (`git commit -s`).
 
 ## License

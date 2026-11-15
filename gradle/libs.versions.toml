@@ -9,6 +9,7 @@ lifecycle = "2.11.0"
 serialization = "1.13.0"
 coroutines = "1.11.0"
 junit = "4.13.2"
+qrcodegen = "1.8.0"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
@@ -25,6 +26,8 @@ serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-jso
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 junit = { module = "junit:junit", version.ref = "junit" }
+# Project Nayuki QR Code generator: MIT, pure Java, no dependencies (Wi-Fi join codes).
+qrcodegen = { module = "io.nayuki:qrcodegen", version.ref = "qrcodegen" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

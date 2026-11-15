@@ -52,6 +52,7 @@ import tech.spectrumlabs.hospitium.launcher.R
 import tech.spectrumlabs.hospitium.launcher.data.CachedConfig
 import tech.spectrumlabs.hospitium.launcher.domain.Clocks
 import tech.spectrumlabs.hospitium.launcher.domain.HomePolicy
+import tech.spectrumlabs.hospitium.launcher.domain.WifiQr
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -66,7 +67,8 @@ private val Gutter = 48.dp
 private val RowPadding = PaddingValues(horizontal = Gutter, vertical = 8.dp)
 
 /** A non-app card in the "Your stay" row. */
-private data class StayCard(val key: String, val title: String, val lines: List<String>)
+/** A non-app card in the "Your stay" row; [qr] is a code to show beside the text (Wi-Fi). */
+private data class StayCard(val key: String, val title: String, val lines: List<String>, val qr: String? = null)
 
 // TV layouts are designed on a 960x540dp canvas; 48dp/27dp keeps content inside overscan.
 @Composable
@@ -89,7 +91,9 @@ fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now
     val amenitiesTitle = stringResource(R.string.row_amenities)
     val stay = buildList {
         view.announcements.forEach { add(StayCard("a-${it.id}", it.title, listOf(it.body))) }
-        if (wifiNetwork != null) add(StayCard("wifi", wifiTitle, listOfNotNull(wifiNetwork, wifiPassword)))
+        if (wifi != null && wifiNetwork != null) {
+            add(StayCard("wifi", wifiTitle, listOfNotNull(wifiNetwork, wifiPassword), qr = WifiQr.payload(wifi.ssid, wifi.password)))
+        }
         if (config.property.houseRules.isNotEmpty()) add(StayCard("rules", rulesTitle, config.property.houseRules))
         if (config.property.amenities.isNotEmpty()) add(StayCard("amenities", amenitiesTitle, config.property.amenities))
     }
@@ -232,12 +236,14 @@ private fun AppTile(app: TvApp) {
 @Composable
 private fun InfoCard(card: StayCard, sizes: LayoutSizes, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     var clipped by remember(card) { mutableStateOf(card.lines.size > MAX_CARD_LINES) }
+    val width = if (card.qr != null) sizes.infoCardWidth * 1.45f else sizes.infoCardWidth
     Card(
         onClick = onOpen,
-        modifier = modifier.width(sizes.infoCardWidth).heightIn(min = sizes.infoCardMinHeight, max = sizes.infoCardMaxHeight),
+        modifier = modifier.width(width).heightIn(min = sizes.infoCardMinHeight, max = sizes.infoCardMaxHeight),
     ) {
         // No inner background: the card's own surface fills it at whatever height the text needs.
-        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
             Text(
                 card.title,
                 style = MaterialTheme.typography.titleSmall,
@@ -261,6 +267,11 @@ private fun InfoCard(card: StayCard, sizes: LayoutSizes, onOpen: () -> Unit, mod
                 Spacer(Modifier.height(6.dp))
                 Text(stringResource(R.string.more), style = MaterialTheme.typography.labelSmall, color = Accent)
             }
+            }
+            card.qr?.let {
+                Spacer(Modifier.width(10.dp))
+                QrCodeImage(it, 92.dp, stringResource(R.string.wifi_qr_description))
+            }
         }
     }
 }
@@ -281,6 +292,18 @@ private fun StayDetails(card: StayCard, onDismiss: () -> Unit) {
         ) {
             Text(card.title, style = MaterialTheme.typography.headlineSmall, color = Color.White)
             Spacer(Modifier.height(12.dp))
+            card.qr?.let {
+                // Large enough to scan from across the room.
+                QrCodeImage(it, 200.dp, stringResource(R.string.wifi_qr_description), Modifier.align(Alignment.CenterHorizontally))
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.wifi_qr_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Dim,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                )
+                Spacer(Modifier.height(12.dp))
+            }
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                 // Each line is focusable so the D-pad moves through long text; focus brings it into view.
                 for (line in card.lines) {
