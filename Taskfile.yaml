@@ -32,3 +32,98 @@ tasks:
   reset:
     desc: Clear the launcher's data on the connected device (forgets server, pairing and cache)
     cmd: adb shell pm clear tech.spectrumlabs.hospitium.launcher
+
+  # ---- releases ----
+  # A vX.Y.Z tag on origin/main publishes the unsigned release APK (release.yaml), cut only through
+  # `task release`. Every guard below exists so an agent cannot publish one by mistake.
+  #
+  # Runs in go-task's embedded shell: use only git, gh and shell builtins (no grep/head on the
+  # Windows PATH), and never two variables whose names differ only by case (they are one variable
+  # on Windows).
+
+  release:
+    desc: >-
+      Release: tag the tip of origin/main after CI, publishing the unsigned APK.
+      Usage: task release BUMP=patch|minor|major   (DRY_RUN=1 checks everything without tagging)
+    silent: true
+    cmds:
+      - |
+        set -eu
+        bump="{{.BUMP | default ""}}"
+        dry="{{.DRY_RUN | default ""}}"
+        # The arithmetic self-test runs first, in this same shell, on every release.
+        {{.TASK_EXE}} release:check >/dev/null || { echo "release: version arithmetic self-test failed; run task release:check" >&2; exit 1; }
+        case "$bump" in major|minor|patch) : ;; *) echo "Usage: task release BUMP=patch|minor|major" >&2; exit 1 ;; esac
+        # Tag what was PUSHED, never the local HEAD: HEAD can hold commits nobody pushed or reviewed.
+        git fetch --quiet origin main --tags
+        sha="$(git rev-parse origin/main)"
+        unpushed="$(git rev-list --count origin/main..HEAD)"
+        [ "$unpushed" = "0" ] || echo "release: HEAD has ${unpushed} unpushed commit(s); they are NOT in this release."
+        existing="$(git tag --points-at "$sha")"
+        [ -z "$existing" ] || { echo "origin/main (${sha}) is already released as ${existing}." >&2; exit 1; }
+        latest="$(git for-each-ref --sort=-v:refname --count=1 --format='%(refname:short)' 'refs/tags/v*')"
+        [ -n "$latest" ] || latest="v0.0.0"
+        new="$({{.TASK_EXE}} release:next LATEST="$latest" BUMP="$bump")"
+        # versionCode is major*1_000_000 + minor*1_000 + patch: minor or patch at 1000 or more would
+        # collide with the next version's code, and Android installs only a higher versionCode.
+        v="${new#v}"
+        min="${v#*.}"
+        pat="${min#*.}"
+        min="${min%%.*}"
+        [ "$min" -lt 1000 ] && [ "$pat" -lt 1000 ] || { echo "release: ${new} overflows versionCode (minor and patch must stay below 1000)." >&2; exit 1; }
+        echo "release: ${latest} -> ${new} at ${sha}"
+        # CI (Android lint, unit tests, debug and release builds) must have passed on exactly this commit.
+        passed="$(gh run list --repo spectrum-labs-tech/hospitium-launcher --workflow ci.yaml --commit "$sha" --json conclusion --jq '[.[] | select(.conclusion == "success")] | length')"
+        [ "$passed" != "0" ] || { echo "CI has not passed on ${sha}. Wait for it or fix it: gh run list --commit ${sha}" >&2; exit 1; }
+        if [ -n "$dry" ]; then echo "release: DRY_RUN, every check passed; would tag ${new} at ${sha}."; exit 0; fi
+        git tag -a "$new" -m "$new" "$sha"
+        git push origin "$new"
+        echo "release: pushed ${new} at ${sha}. release.yaml builds and publishes the unsigned APK."
+
+  release:next:
+    desc: "Print the version after LATEST for BUMP (the one implementation release and release:check share)"
+    silent: true
+    requires:
+      vars: [LATEST, BUMP]
+    cmds:
+      - |
+        set -eu
+        latest="{{.LATEST}}"
+        bump="{{.BUMP}}"
+        case "$latest" in
+          *-*|*+*) echo "LATEST must be a plain vX.Y.Z; these repos don't use pre-release tags (got '$latest')" >&2; exit 1 ;;
+          v[0-9]*.[0-9]*.[0-9]*) : ;;
+          *) echo "LATEST must be vX.Y.Z (got '$latest')" >&2; exit 1 ;;
+        esac
+        case "$bump" in major|minor|patch) : ;; *) echo "BUMP must be major|minor|patch (got '$bump')" >&2; exit 1 ;; esac
+        v="${latest#v}"
+        maj="${v%%.*}"
+        rest="${v#*.}"
+        min="${rest%%.*}"
+        pat="${rest#*.}"
+        if [ "$bump" = "major" ]; then
+          maj=$((maj + 1)); min=0; pat=0
+        elif [ "$bump" = "minor" ]; then
+          min=$((min + 1)); pat=0
+        else
+          pat=$((pat + 1))
+        fi
+        echo "v${maj}.${min}.${pat}"
+
+  release:check:
+    desc: Self-test the release version arithmetic in task's own shell (where it actually runs)
+    silent: true
+    cmds:
+      - |
+        set -eu
+        fail=0
+        for c in v1.1.8:patch:v1.1.9 v1.1.8:minor:v1.2.0 v1.1.8:major:v2.0.0 v0.0.0:minor:v0.1.0 v0.2.0:minor:v0.3.0 v0.9.9:minor:v0.10.0 v0.10.0:patch:v0.10.1; do
+          latest="${c%%:*}"
+          rest="${c#*:}"
+          bump="${rest%%:*}"
+          want="${rest#*:}"
+          got="$({{.TASK_EXE}} release:next LATEST="$latest" BUMP="$bump")"
+          if [ "$got" = "$want" ]; then echo "  ok   ${latest} ${bump} -> ${got}"; else echo "  FAIL ${latest} ${bump} -> ${got} (want ${want})"; fail=1; fi
+        done
+        [ "$fail" = "0" ] || { echo "release arithmetic is WRONG; do not cut a release" >&2; exit 1; }
+        echo "release arithmetic ok"

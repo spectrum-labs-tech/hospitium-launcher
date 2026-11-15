@@ -26,6 +26,15 @@ control plane speaking `hospitium-protocol` v1. Read `README.md`. `CONTRIBUTING.
   its notice there. HTTP is the platform's `HttpURLConnection`.
 - **Label evidence honestly.** Emulator behavior isn't hardware behavior.
 
+## Releases
+
+- **Only through `task release BUMP=patch|minor|major`, and only when the maintainer asks.** Never
+  `git tag` or `git push --tags` by hand. TVs install by `versionCode`, so a published version can
+  never be taken back, only superseded.
+- The task tags the tip of `origin/main` after CI passed on it, and keeps minor and patch below 1000
+  (`versionCode` = major×1,000,000 + minor×1,000 + patch).
+- `release:next` is the only copy of the version arithmetic; `task release:check` self-tests it.
+
 ## Commands
 
 All recurring commands live in `Taskfile.yaml` (`task --list`). `task check` must pass with no

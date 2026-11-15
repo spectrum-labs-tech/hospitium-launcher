@@ -63,7 +63,10 @@ The debug build accepts `http://10.0.2.2:<port>` as the server address, which re
 
 ### Releases
 
-Pushing a tag `vMAJOR.MINOR.PATCH` publishes an **unsigned** release APK and its SHA-256. Whoever deploys the launcher signs it with their own key: Android refuses to update an app that's signed by a different key, so the key has to belong to the operator, not this repository. `versionCode` is `major*1_000_000 + minor*1_000 + patch`.
+Maintainers cut releases with `task release BUMP=patch|minor|major`, never by tagging by hand. The task
+tags the tip of `origin/main` after CI passed on that exact commit, and refuses a version whose minor
+or patch would overflow `versionCode`. `DRY_RUN=1` runs every check without tagging. The tag
+publishes an **unsigned** release APK and its SHA-256. Whoever deploys the launcher signs it with their own key: Android refuses to update an app that's signed by a different key, so the key has to belong to the operator, not this repository. `versionCode` is `major*1_000_000 + minor*1_000 + patch`.
 
 ## Status
 
