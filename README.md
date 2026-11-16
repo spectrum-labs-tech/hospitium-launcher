@@ -35,6 +35,10 @@ If an administrator removes the TV, the config call starts returning 401. After 
 
 Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
+## Usage counts
+
+The launcher counts, per hour, how often the home screen comes to the front, how often each card (Wi-Fi, house rules, amenities, each announcement) is opened, and which apps are started from it, and sends those counts with its config polls (`POST /v1/launcher/usage`, protocol v0.6.0). It records nothing else: no text, no times finer than the hour, nothing that identifies a guest. Each count is the hour's running total, so a resend after a failure never counts twice. Counts older than a week are dropped unsent, and unpairing deletes them. The home screen says so in one sentence.
+
 ## Activation
 
 The launcher declares itself as a HOME candidate but never changes the TV's home screen itself. That's the management agent's job. See the agent's documentation for the activation strategies and their side effects on Google TV. Without the agent, the launcher still works as an ordinary app from the TV's app list.

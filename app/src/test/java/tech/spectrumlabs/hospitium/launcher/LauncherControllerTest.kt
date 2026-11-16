@@ -20,6 +20,8 @@ import tech.spectrumlabs.hospitium.launcher.net.LauncherApi
 import tech.spectrumlabs.hospitium.launcher.protocol.LauncherConfig
 import tech.spectrumlabs.hospitium.launcher.protocol.PairingStartResponse
 import tech.spectrumlabs.hospitium.launcher.protocol.PairingStatusResponse
+import tech.spectrumlabs.hospitium.launcher.protocol.UsageReport
+import tech.spectrumlabs.hospitium.launcher.domain.UsageRecorder
 import java.io.IOException
 import java.time.Duration
 
@@ -29,6 +31,8 @@ private class FakeApi : LauncherApi {
     val statuses = ArrayDeque<() -> PairingStatusResponse>()
     val configs = ArrayDeque<() -> LauncherConfig>()
     val calls = mutableListOf<String>()
+    val usageReports = mutableListOf<UsageReport>()
+    var usageFails = false
 
     private fun <T> next(q: ArrayDeque<() -> T>): T = (if (q.size > 1) q.removeFirst() else q.first())()
 
@@ -38,6 +42,11 @@ private class FakeApi : LauncherApi {
     }
     override suspend fun config(deviceToken: String): LauncherConfig { calls += "config $deviceToken"; return next(configs) }
     override suspend fun media(path: String, deviceToken: String): ByteArray { calls += "media $path $deviceToken"; return ByteArray(0) }
+    override suspend fun usage(deviceToken: String, report: UsageReport) {
+        calls += "usage $deviceToken"
+        if (usageFails) throw ApiException.Http(503)
+        usageReports += report
+    }
 }
 
 private fun code(c: String) = PairingStartResponse(c, "hsp_$c", T0.plus(Duration.ofMinutes(15)))
@@ -214,5 +223,28 @@ class LauncherControllerTest {
         c.changeServer()
         assertEquals("https://h.example", store.serverUrl())
         assertTrue(c.state.value is LauncherState.Home)
+    }
+
+    @Test
+    fun `usage goes out after each config and is kept when sending fails`() = runTest {
+        val store = InMemoryDeviceStore(url = "https://h.example", token = "hsd_tok")
+        // Server time is an hour ahead of the TV: counts land in the server's hour.
+        api.configs += { config(serverTime = T0.plus(Duration.ofHours(1)), refresh = 60) }
+        val usage = UsageRecorder(store) { T0 }
+        val c = LauncherController(backgroundScope, store, { api }, now = { T0 }, usage = usage)
+        c.start(); runCurrent()
+        assertTrue("nothing counted, nothing sent", api.calls.none { it.startsWith("usage") })
+
+        usage.record("wifi")
+        api.usageFails = true
+        c.refreshNow(); runCurrent()
+        assertEquals(1, api.calls.count { it == "usage hsd_tok" })
+        assertEquals("kept after a failure", 1, usage.pending()!!.hours.single().counts["wifi"])
+
+        api.usageFails = false
+        c.refreshNow(); runCurrent()
+        val sent = api.usageReports.single()
+        assertEquals(T0.plus(Duration.ofHours(1)), sent.hours.single().hour)
+        assertEquals(mapOf("wifi" to 1), sent.hours.single().counts)
     }
 }

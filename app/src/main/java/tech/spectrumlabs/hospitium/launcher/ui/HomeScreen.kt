@@ -72,7 +72,14 @@ private data class StayCard(val key: String, val title: String, val lines: List<
 
 // TV layouts are designed on a 960x540dp canvas; 48dp/27dp keeps content inside overscan.
 @Composable
-fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now: Instant, onLaunch: (String) -> Unit) {
+fun HomeScreen(
+    cached: CachedConfig,
+    stale: Boolean,
+    installed: List<TvApp>,
+    now: Instant,
+    onLaunch: (String) -> Unit,
+    onOpen: (cardKey: String) -> Unit = {},
+) {
     BackHandler { /* this IS home: Back has nowhere to go */ }
 
     val config = cached.config
@@ -176,7 +183,7 @@ fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now
                     ) {
                         itemsIndexed(stay, key = { _, c -> c.key }) { i, c ->
                             val m = if (i == 0 && focusRow == 1) Modifier.focusRequester(firstFocus) else Modifier
-                            InfoCard(c, sizes, onOpen = { opened = c }, modifier = m)
+                            InfoCard(c, sizes, onOpen = { opened = c; onOpen(c.key) }, modifier = m)
                         }
                     }
                 }
@@ -185,6 +192,16 @@ fun HomeScreen(cached: CachedConfig, stale: Boolean, installed: List<TvApp>, now
 
         if (installed.isNotEmpty()) {
             item { AppRow(stringResource(R.string.row_all_apps), installed, sizes, onLaunch, firstFocus.takeIf { focusRow == 2 }) }
+        }
+
+        // Guests are told, in a sentence, what is counted (protocol v0.6.0 usage).
+        item {
+            Text(
+                stringResource(R.string.usage_notice),
+                style = MaterialTheme.typography.labelSmall,
+                color = Dim,
+                modifier = Modifier.padding(horizontal = Gutter),
+            )
         }
     }
     }

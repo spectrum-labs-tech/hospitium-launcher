@@ -54,6 +54,8 @@ class LauncherController(
     private val now: () -> Instant,
     private val defaultServerUrl: String = "",
     private val allowLocalHttp: Boolean = false,
+    /** Anonymous usage counts to send after each config (null: don't count). */
+    private val usage: UsageRecorder? = null,
 ) {
     private val _state = MutableStateFlow<LauncherState>(LauncherState.Starting)
     val state: StateFlow<LauncherState> = _state.asStateFlow()
@@ -186,6 +188,8 @@ class LauncherController(
                 failures = 0
                 refusals = 0
                 _state.value = LauncherState.Home(cached)
+                usage?.offset = offset
+                sendUsage(api, token)
                 Backoff.refresh(cfg.refreshAfterSeconds)
             } catch (_: ApiException.Unauthorized) {
                 // Several consecutive refusals, not one: a single bad response from a degraded
@@ -193,6 +197,7 @@ class LauncherController(
                 refusals++
                 if (refusals >= REVOKED_AFTER) {
                     store.clearPairing()
+                    usage?.clear()
                     return
                 }
                 _state.value = LauncherState.Home(cached, stale = true)
@@ -203,6 +208,21 @@ class LauncherController(
                 Backoff.afterFailures(failures, REFRESH_RETRY, REFRESH_RETRY_MAX)
             }
             pause(wait)
+        }
+    }
+
+    /**
+     * Sends pending usage counts. A failure keeps them for the next config (counts are running
+     * totals, so a resend is harmless). Revocation is decided by the config call, never by this one.
+     */
+    private suspend fun sendUsage(api: LauncherApi, token: String) {
+        val recorder = usage ?: return
+        val report = recorder.pending() ?: return
+        try {
+            api.usage(token, report)
+            recorder.acknowledged(report)
+        } catch (_: ApiException) {
+            // kept for the next config
         }
     }
 

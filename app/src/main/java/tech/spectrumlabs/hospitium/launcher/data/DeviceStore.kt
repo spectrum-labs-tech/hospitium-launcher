@@ -4,6 +4,7 @@ package tech.spectrumlabs.hospitium.launcher.data
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import tech.spectrumlabs.hospitium.launcher.domain.UsageCounts
 import tech.spectrumlabs.hospitium.launcher.protocol.LauncherConfig
 
 /** The last good config and the server-minus-local clock offset measured when it arrived. */
@@ -28,7 +29,11 @@ interface DeviceStore {
     fun cachedConfig(): CachedConfig?
     fun saveCachedConfig(cached: CachedConfig)
 
-    /** Forget the pairing and the cache (token revoked). The server address is kept. */
+    /** Usage counts not yet accepted by the server (protocol v0.6.0); empty if none or unreadable. */
+    fun usage(): UsageCounts
+    fun saveUsage(counts: UsageCounts)
+
+    /** Forget the pairing, the cache and unsent usage (token revoked). The server address is kept. */
     fun clearPairing()
 
     /** Forget everything, including the server address. */
@@ -40,6 +45,7 @@ class InMemoryDeviceStore(
     private var url: String? = null,
     private var token: String? = null,
     private var cached: CachedConfig? = null,
+    private var counts: UsageCounts = UsageCounts(),
 ) : DeviceStore {
     override fun serverUrl() = url
     override fun saveServerUrl(url: String) { this.url = url }
@@ -47,6 +53,8 @@ class InMemoryDeviceStore(
     override fun saveDeviceToken(token: String) { this.token = token }
     override fun cachedConfig() = cached
     override fun saveCachedConfig(cached: CachedConfig) { this.cached = cached }
-    override fun clearPairing() { token = null; cached = null }
+    override fun usage() = counts
+    override fun saveUsage(counts: UsageCounts) { this.counts = counts }
+    override fun clearPairing() { token = null; cached = null; counts = UsageCounts() }
     override fun clearAll() { clearPairing(); url = null }
 }

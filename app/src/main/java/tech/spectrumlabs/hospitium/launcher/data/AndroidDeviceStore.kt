@@ -9,6 +9,7 @@ import android.util.AtomicFile
 import android.util.Base64
 import android.util.Log
 import androidx.core.content.edit
+import tech.spectrumlabs.hospitium.launcher.domain.UsageCounts
 import tech.spectrumlabs.hospitium.launcher.protocol.ProtocolJson
 import java.io.File
 import java.security.GeneralSecurityException
@@ -26,6 +27,7 @@ import javax.crypto.spec.GCMParameterSpec
 class AndroidDeviceStore(context: Context) : DeviceStore {
     private val prefs = context.getSharedPreferences("device", Context.MODE_PRIVATE)
     private val cacheFile = AtomicFile(File(context.noBackupFilesDir, "config.json"))
+    private val usageFile = AtomicFile(File(context.noBackupFilesDir, "usage.json"))
 
     override fun serverUrl(): String? = prefs.getString(KEY_URL, null)
 
@@ -74,9 +76,31 @@ class AndroidDeviceStore(context: Context) : DeviceStore {
         }
     }
 
+    override fun usage(): UsageCounts = try {
+        ProtocolJson.decodeFromString(UsageCounts.serializer(), String(usageFile.readFully(), Charsets.UTF_8))
+    } catch (_: java.io.FileNotFoundException) {
+        UsageCounts()
+    } catch (e: Exception) { // unreadable counts are just lost counts
+        Log.w(TAG, "discarding unreadable usage counts: ${e.javaClass.simpleName}")
+        usageFile.delete()
+        UsageCounts()
+    }
+
+    override fun saveUsage(counts: UsageCounts) {
+        val out = usageFile.startWrite()
+        try {
+            out.write(ProtocolJson.encodeToString(UsageCounts.serializer(), counts).toByteArray(Charsets.UTF_8))
+            usageFile.finishWrite(out)
+        } catch (e: java.io.IOException) {
+            usageFile.failWrite(out)
+            Log.w(TAG, "could not write usage counts: ${e.javaClass.simpleName}")
+        }
+    }
+
     override fun clearPairing() {
         prefs.edit(commit = true) { remove(KEY_TOKEN) }
         cacheFile.delete()
+        usageFile.delete()
     }
 
     override fun clearAll() {

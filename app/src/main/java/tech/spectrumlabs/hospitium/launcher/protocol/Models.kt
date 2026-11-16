@@ -22,6 +22,7 @@ object Paths {
     const val PAIRING_STATUS = "/v1/launcher/pairings/" // + code
     const val CONFIG = "/v1/launcher/config"
     const val MEDIA = "/v1/launcher/media/" // + lowercase hex SHA-256
+    const val USAGE = "/v1/launcher/usage" // added in protocol v0.6.0
 }
 
 /** Keys of PropertyInfo.branding (protocol v1 Branding* constants). */
@@ -124,3 +125,11 @@ data class LauncherApp(
     @SerialName("package_name") val packageName: String,
     val label: String = "",
 )
+
+/** Anonymous hourly usage counts (protocol v0.6.0, v1/usage.go). */
+@Serializable
+data class UsageReport(val hours: List<UsageHour>)
+
+/** One UTC hour's running totals by counter. */
+@Serializable
+data class UsageHour(val hour: Time, val counts: Map<String, Int>)

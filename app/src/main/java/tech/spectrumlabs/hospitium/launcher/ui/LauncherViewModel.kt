@@ -20,7 +20,10 @@ import tech.spectrumlabs.hospitium.launcher.data.AndroidDeviceStore
 import tech.spectrumlabs.hospitium.launcher.domain.Backgrounds
 import tech.spectrumlabs.hospitium.launcher.domain.LauncherController
 import tech.spectrumlabs.hospitium.launcher.domain.LauncherState
+import tech.spectrumlabs.hospitium.launcher.domain.UsageCounters
+import tech.spectrumlabs.hospitium.launcher.domain.UsageRecorder
 import tech.spectrumlabs.hospitium.launcher.net.LauncherClient
+import java.time.Duration
 import java.time.Instant
 
 class LauncherViewModel(app: Application) : AndroidViewModel(app) {
@@ -29,13 +32,21 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
     // No device identifiers in the User-Agent: the app version and Android release only.
     private val userAgent = "hospitium-launcher/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})"
 
+    private val store = AndroidDeviceStore(app)
+
+    /** Anonymous hourly counts of screens opened and apps started (protocol v0.6.0). */
+    private val usage = UsageRecorder(store, Instant::now).apply {
+        store.cachedConfig()?.let { offset = Duration.ofMillis(it.offsetMillis) }
+    }
+
     val controller = LauncherController(
         scope = viewModelScope,
-        store = AndroidDeviceStore(app),
+        store = store,
         apiFor = { url -> LauncherClient(url, userAgent) },
         now = Instant::now,
         defaultServerUrl = BuildConfig.DEFAULT_SERVER_URL,
         allowLocalHttp = BuildConfig.DEBUG,
+        usage = usage,
     ).also { it.start() }
 
     private val backgrounds = BackgroundLoader(app.cacheDir, controller::media)
@@ -68,9 +79,18 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Called on every resume: apps may have been installed or removed, and the TV may have slept. */
     fun onResume() {
+        if (controller.state.value is LauncherState.Home) usage.record(UsageCounters.HOME)
         controller.refreshNow()
         viewModelScope.launch(Dispatchers.IO) { _apps.value = catalog.installed() }
     }
 
-    fun launch(packageName: String) = catalog.launch(packageName)
+    fun launch(packageName: String) {
+        usage.record(UsageCounters.app(packageName))
+        catalog.launch(packageName)
+    }
+
+    /** A home-screen card was opened. */
+    fun opened(cardKey: String) {
+        UsageCounters.forCard(cardKey)?.let(usage::record)
+    }
 }

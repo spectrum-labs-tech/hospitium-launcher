@@ -15,6 +15,8 @@ import org.junit.Before
 import org.junit.Test
 import tech.spectrumlabs.hospitium.launcher.net.ApiException
 import tech.spectrumlabs.hospitium.launcher.net.LauncherClient
+import tech.spectrumlabs.hospitium.launcher.protocol.UsageHour
+import tech.spectrumlabs.hospitium.launcher.protocol.UsageReport
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -44,6 +46,22 @@ class LauncherClientTest {
 
     @After
     fun down() = server.stop(0)
+
+    @Test
+    fun `usage is a JSON POST with the device token`() = runBlocking {
+        var body = ""
+        var type: String? = null
+        respond = { ex ->
+            body = ex.requestBody.readBytes().toString(Charsets.UTF_8)
+            type = ex.requestHeaders.getFirst("Content-Type")
+            204 to ""
+        }
+        val report = UsageReport(listOf(UsageHour(java.time.Instant.parse("2026-11-12T09:00:00Z"), mapOf("home" to 2))))
+        client.usage("hsd_tok", report)
+        assertEquals(Seen("POST", "/v1/launcher/usage", "Bearer hsd_tok", "test-agent/1"), seen.single())
+        assertEquals("application/json", type)
+        assertEquals("""{"hours":[{"hour":"2026-11-12T09:00:00Z","counts":{"home":2}}]}""", body)
+    }
 
     @Test
     fun `pairing start is an unauthenticated POST`() = runBlocking {

@@ -70,7 +70,7 @@ fun LauncherApp(vm: LauncherViewModel) {
                         Centered(stringResource(R.string.connecting))
                     } else {
                         background?.let { Backdrop(it) }
-                        HomeScreen(cached, s.stale, apps, rememberNow(), onLaunch = { vm.launch(it) })
+                        HomeScreen(cached, s.stale, apps, rememberNow(), onLaunch = { vm.launch(it) }, onOpen = { vm.opened(it) })
                     }
                 }
             }

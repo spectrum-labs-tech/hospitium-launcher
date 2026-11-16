@@ -11,6 +11,7 @@ import tech.spectrumlabs.hospitium.launcher.protocol.PairingStartResponse
 import tech.spectrumlabs.hospitium.launcher.protocol.PairingStatusResponse
 import tech.spectrumlabs.hospitium.launcher.protocol.Paths
 import tech.spectrumlabs.hospitium.launcher.protocol.ProtocolJson
+import tech.spectrumlabs.hospitium.launcher.protocol.UsageReport
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
@@ -44,6 +45,9 @@ interface LauncherApi {
      * request is made, so the device token can't be sent to an arbitrary path or host).
      */
     suspend fun media(path: String, deviceToken: String): ByteArray
+
+    /** Anonymous hourly usage counts (protocol v0.6.0). */
+    suspend fun usage(deviceToken: String, report: UsageReport)
 }
 
 /**
@@ -74,6 +78,11 @@ class LauncherClient(
         return call("GET", path, deviceToken, accept = "image/jpeg").first
     }
 
+    override suspend fun usage(deviceToken: String, report: UsageReport) {
+        val body = ProtocolJson.encodeToString(UsageReport.serializer(), report).toByteArray(Charsets.UTF_8)
+        call("POST", Paths.USAGE, deviceToken, body = body)
+    }
+
     private fun <T> decode(serializer: KSerializer<T>, bytes: ByteArray): T = try {
         if (bytes.isEmpty()) throw IllegalArgumentException("empty body")
         ProtocolJson.decodeFromString(serializer, String(bytes, Charsets.UTF_8))
@@ -89,6 +98,7 @@ class LauncherClient(
         path: String,
         bearer: String?,
         accept: String = "application/json",
+        body: ByteArray? = null,
     ): Pair<ByteArray, Instant?> = withContext(Dispatchers.IO) {
         val conn = try {
             URI(baseUrl.trimEnd('/') + path).toURL().openConnection() as HttpURLConnection
@@ -105,9 +115,11 @@ class LauncherClient(
             conn.setRequestProperty("User-Agent", userAgent)
             if (bearer != null) conn.setRequestProperty("Authorization", "Bearer $bearer")
             if (method == "POST") {
+                val bytes = body ?: ByteArray(0)
                 conn.doOutput = true
-                conn.setFixedLengthStreamingMode(0)
-                conn.outputStream.close()
+                if (body != null) conn.setRequestProperty("Content-Type", "application/json")
+                conn.setFixedLengthStreamingMode(bytes.size)
+                conn.outputStream.use { it.write(bytes) }
             }
             val status = conn.responseCode
             when {
