@@ -28,4 +28,12 @@ class AppCatalogTest {
         assertEquals(Color.Black, brandColor("#12345", Color.Black))
         assertEquals(Color.Black, brandColor(null, Color.Black))
     }
+
+    @Test
+    fun `the property's popular apps come first, the rest keep their order`() {
+        val installed = listOf(app("a.pkg", "A"), app("b.pkg", "B"), app("c.pkg", "C"), app("d.pkg", "D"))
+        val sorted = AppCatalog.byPopularity(installed, listOf("c.pkg", "missing.pkg", "a.pkg"))
+        assertEquals(listOf("c.pkg", "a.pkg", "b.pkg", "d.pkg"), sorted.map { it.packageName })
+        assertEquals(installed, AppCatalog.byPopularity(installed, emptyList()))
+    }
 }

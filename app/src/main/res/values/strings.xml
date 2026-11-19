@@ -8,7 +8,7 @@
     <string name="setup_connect">Connect</string>
 
     <string name="pairing_title">Pair this TV</string>
-    <string name="pairing_body">In Hospitium, open Devices, choose Pair a TV and enter this code.</string>
+    <string name="pairing_body">In Hospitium, open TVs, choose this TV, then Pair launcher, and enter this code.</string>
     <string name="pairing_requesting">Getting a pairing code…</string>
     <string name="pairing_expires">This code changes in %1$d min.</string>
     <string name="pairing_server">Server: %1$s</string>

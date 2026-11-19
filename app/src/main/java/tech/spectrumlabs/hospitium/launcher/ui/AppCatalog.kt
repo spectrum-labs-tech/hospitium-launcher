@@ -46,6 +46,18 @@ class AppCatalog(private val context: Context) {
     }
 
     companion object {
+        /**
+         * The property's most started apps first, in its order (protocol v0.7.0 popular_apps, an
+         * anonymous property-wide aggregate), then the rest as they were (alphabetical).
+         */
+        fun byPopularity(installed: List<TvApp>, popular: List<String>): List<TvApp> {
+            if (popular.isEmpty()) return installed
+            val rank = popular.withIndex().associate { (i, p) -> p to i }
+            return installed.withIndex()
+                .sortedWith(compareBy({ rank[it.value.packageName] ?: Int.MAX_VALUE }, { it.index }))
+                .map { it.value }
+        }
+
         /** The server's featured apps that are installed, in the server's order, with its labels. */
         fun featured(wanted: List<LauncherApp>, installed: List<TvApp>): List<TvApp> {
             val byPackage = installed.associateBy { it.packageName }

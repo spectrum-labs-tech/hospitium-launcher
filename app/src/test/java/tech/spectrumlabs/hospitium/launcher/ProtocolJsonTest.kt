@@ -52,4 +52,18 @@ class ProtocolJsonTest {
         val back = ProtocolJson.decodeFromString(CachedConfig.serializer(), ProtocolJson.encodeToString(CachedConfig.serializer(), cached))
         assertEquals(cached, back)
     }
+
+    @Test
+    fun `reads the v0_7_0 fields, and their absence`() {
+        val c = ProtocolJson.decodeFromString(
+            LauncherConfig.serializer(),
+            """{"property":{"name":"P"},"server_time":"2026-11-12T15:00:00Z",
+              "announcements":[{"id":"7","title":"Welcome!","show_on_wake":true},{"id":"8","title":"Pool"}],
+              "popular_apps":["com.netflix.ninja","com.disney.disneyplus"]}""",
+        )
+        assertEquals(listOf(true, false), c.announcements.map { it.showOnWake })
+        assertEquals(listOf("com.netflix.ninja", "com.disney.disneyplus"), c.popularApps)
+        val old = ProtocolJson.decodeFromString(LauncherConfig.serializer(), """{"property":{"name":"P"},"server_time":"2026-11-12T15:00:00Z"}""")
+        assertEquals(emptyList<String>(), old.popularApps)
+    }
 }

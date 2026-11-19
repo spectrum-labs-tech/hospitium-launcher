@@ -79,6 +79,8 @@ fun HomeScreen(
     now: Instant,
     onLaunch: (String) -> Unit,
     onOpen: (cardKey: String) -> Unit = {},
+    /** Changes each time the agent brings the launcher up because the TV woke. */
+    wakes: Int = 0,
 ) {
     BackHandler { /* this IS home: Back has nowhere to go */ }
 
@@ -89,6 +91,11 @@ fun HomeScreen(
     val time = remember(zone) { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withZone(zone) }
     val dateTime = remember(zone) { DateTimeFormatter.ofPattern("EEE, MMM d · h:mm a").withZone(zone) }
     val featured = remember(config.apps, installed) { AppCatalog.featured(config.apps, installed) }
+    val allApps = remember(installed, config.popularApps) { AppCatalog.byPopularity(installed, config.popularApps) }
+    val date = remember(zone) {
+        val locale = java.util.Locale.getDefault()
+        DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "EEEEMMMMd"), locale).withZone(zone)
+    }
 
     val wifi = config.property.wifi
     val wifiTitle = stringResource(R.string.wifi_title)
@@ -117,6 +124,11 @@ fun HomeScreen(
 
     var opened by remember { mutableStateOf<StayCard?>(null) }
     opened?.let { card -> StayDetails(card, onDismiss = { opened = null }) }
+    // The TV just turned on: open the message of the day, if there is one. Not counted as usage,
+    // since no guest chose it.
+    LaunchedEffect(wakes) {
+        if (wakes > 0) HomePolicy.wakeAnnouncement(view)?.let { a -> stay.firstOrNull { it.key == "a-${a.id}" }?.let { opened = it } }
+    }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
     val sizes = LayoutSizes.forWidth(maxWidth.value)
@@ -140,7 +152,10 @@ fun HomeScreen(
                     )
                     Spacer(Modifier.width(16.dp))
                 }
-                Text(time.format(clocks.corrected), style = MaterialTheme.typography.titleLarge, color = Color.White)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(time.format(clocks.corrected), style = MaterialTheme.typography.titleLarge, color = Color.White)
+                    Text(date.format(clocks.corrected), style = MaterialTheme.typography.bodySmall, color = Dim)
+                }
             }
         }
 
@@ -190,8 +205,8 @@ fun HomeScreen(
             }
         }
 
-        if (installed.isNotEmpty()) {
-            item { AppRow(stringResource(R.string.row_all_apps), installed, sizes, onLaunch, firstFocus.takeIf { focusRow == 2 }) }
+        if (allApps.isNotEmpty()) {
+            item { AppRow(stringResource(R.string.row_all_apps), allApps, sizes, onLaunch, firstFocus.takeIf { focusRow == 2 }) }
         }
 
         // Guests are told, in a sentence, what is counted (protocol v0.6.0 usage).

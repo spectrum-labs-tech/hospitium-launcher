@@ -89,6 +89,15 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         catalog.launch(packageName)
     }
 
+    private val _wakes = MutableStateFlow(0)
+
+    /** Counts the times the agent brought the launcher up because the TV woke (protocol v0.7.0). */
+    val wakes: StateFlow<Int> = _wakes.asStateFlow()
+
+    fun woke() {
+        _wakes.value += 1
+    }
+
     /** A home-screen card was opened. */
     fun opened(cardKey: String) {
         UsageCounters.forCard(cardKey)?.let(usage::record)

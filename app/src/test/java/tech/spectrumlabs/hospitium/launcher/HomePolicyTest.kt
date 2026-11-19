@@ -91,4 +91,15 @@ class HomePolicyTest {
         assertEquals(listOf(15L, 30L, 60L, 120L, 240L, 480L, 600L, 600L), (1..8).map { Backoff.afterFailures(it, base, max).seconds })
         assertEquals(max, Backoff.afterFailures(1_000, base, max))
     }
+
+    @Test
+    fun `the message of the day is the newest announcement marked for wake`() {
+        val plain = Announcement("1", "Pool hours", "9 to 9")
+        val motd = Announcement("2", "Welcome!", "Coffee is in the left cabinet.", showOnWake = true)
+        val older = Announcement("3", "Old news", "", showOnWake = true)
+        val view = HomePolicy.view(cfg.copy(announcements = listOf(plain, motd, older)), Clocks(T0, Duration.ZERO))
+        assertEquals("2", HomePolicy.wakeAnnouncement(view)?.id)
+        val none = HomePolicy.view(cfg.copy(announcements = listOf(plain)), Clocks(T0, Duration.ZERO))
+        assertNull(HomePolicy.wakeAnnouncement(none))
+    }
 }

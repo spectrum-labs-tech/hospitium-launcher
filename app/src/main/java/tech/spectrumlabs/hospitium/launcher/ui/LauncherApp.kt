@@ -55,6 +55,7 @@ fun LauncherApp(vm: LauncherViewModel) {
     val state by vm.controller.state.collectAsStateWithLifecycle()
     val apps by vm.apps.collectAsStateWithLifecycle()
     val background by vm.background.collectAsStateWithLifecycle()
+    val wakes by vm.wakes.collectAsStateWithLifecycle()
     val primary = (state as? LauncherState.Home)?.cached?.config?.property?.branding?.get("primary_color")
     val brand = brandColor(primary, Ink)
 
@@ -70,7 +71,10 @@ fun LauncherApp(vm: LauncherViewModel) {
                         Centered(stringResource(R.string.connecting))
                     } else {
                         background?.let { Backdrop(it) }
-                        HomeScreen(cached, s.stale, apps, rememberNow(), onLaunch = { vm.launch(it) }, onOpen = { vm.opened(it) })
+                        HomeScreen(
+                            cached, s.stale, apps, rememberNow(),
+                            onLaunch = { vm.launch(it) }, onOpen = { vm.opened(it) }, wakes = wakes,
+                        )
                     }
                 }
             }

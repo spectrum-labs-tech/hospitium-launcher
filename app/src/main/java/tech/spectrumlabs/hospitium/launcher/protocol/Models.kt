@@ -82,6 +82,8 @@ data class LauncherConfig(
     val guest: GuestInfo? = null,
     val announcements: List<Announcement> = emptyList(),
     val apps: List<LauncherApp> = emptyList(),
+    /** Packages most started across the property first (protocol v0.7.0); sorts the app list. */
+    @SerialName("popular_apps") val popularApps: List<String> = emptyList(),
     @SerialName("server_time") val serverTime: Time,
     @SerialName("refresh_after_seconds") val refreshAfterSeconds: Int = 0,
 )
@@ -118,7 +120,12 @@ data class Announcement(
     val title: String,
     val body: String = "",
     @SerialName("expires_at") val expiresAt: Time? = null,
+    /** Opened when the TV turns on, a message of the day (protocol v0.7.0). */
+    @SerialName("show_on_wake") val showOnWake: Boolean = false,
 )
+
+/** The intent extra an agent sets when it starts the launcher because the TV woke (protocol v0.7.0). */
+const val EXTRA_WAKE = "tech.spectrumlabs.hospitium.launcher.extra.WAKE"
 
 @Serializable
 data class LauncherApp(

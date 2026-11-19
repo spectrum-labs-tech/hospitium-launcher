@@ -32,6 +32,9 @@ data class HomeView(
 )
 
 object HomePolicy {
+    /** The message of the day to open when the TV wakes: the newest one marked for it, if any. */
+    fun wakeAnnouncement(view: HomeView): Announcement? = view.announcements.firstOrNull { it.showOnWake }
+
     /**
      * Applies every expiry locally, including while offline (protocol v1: "Guest fields carry their
      * own expiry which the launcher must enforce locally"). The guest disappears at the EARLIEST
