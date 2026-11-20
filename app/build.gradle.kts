@@ -14,11 +14,11 @@ val versionNameProp = providers.gradleProperty("hospitium.versionName").orElse("
 val serverUrlProp = providers.gradleProperty("hospitium.serverUrl").orElse("")
 
 android {
-    namespace = "tech.spectrumlabs.hospitium.launcher"
+    namespace = "tv.hospitium.launcher"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "tech.spectrumlabs.hospitium.launcher"
+        applicationId = "tv.hospitium.launcher"
         minSdk = 28
         targetSdk = 36
         versionCode = versionCodeProp.get().toInt()

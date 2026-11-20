@@ -43,7 +43,7 @@ The launcher counts, per hour, how often the home screen comes to the front, how
 
 The launcher declares itself as a HOME candidate but never changes the TV's home screen itself. That's the management agent's job. See the agent's documentation for the activation strategies and their side effects on Google TV. Without the agent, the launcher still works as an ordinary app from the TV's app list.
 
-Package: `tech.spectrumlabs.hospitium.launcher`, activity `.MainActivity`.
+Package: `tv.hospitium.launcher`, activity `.MainActivity`.
 
 ## Building
 
