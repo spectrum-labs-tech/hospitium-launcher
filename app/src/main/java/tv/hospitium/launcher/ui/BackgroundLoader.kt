@@ -13,24 +13,42 @@ import tv.hospitium.launcher.domain.Backgrounds
 import java.io.File
 import java.io.IOException
 
-/** A decoded background and the scrim strength to draw over it. */
-data class BackgroundImage(val sha256: String, val bitmap: ImageBitmap, val scrim: Float)
+/** A decoded background, how to keep text legible over it, and the credit shown with it. */
+data class BackgroundImage(
+    val key: String,
+    val bitmap: ImageBitmap,
+    val scrim: Float,
+    val overlay: Backgrounds.Overlay = Backgrounds.Overlay.GRADIENT,
+    val credit: String? = null,
+)
 
 /**
- * Downloads, verifies, caches and decodes the chosen background. Media is content-addressed, so a
- * cached file never goes stale: it is reused until a different address is chosen. Bytes that don't
- * hash to their address are discarded, wherever they came from.
+ * Downloads, verifies, caches and decodes the chosen background. Control-plane media is
+ * content-addressed, so a cached file never goes stale: it is reused until a different address is
+ * chosen, and bytes that don't hash to their address are discarded. Hotlinked (Unsplash) images are
+ * fetched without credentials and kept in memory only.
  */
-class BackgroundLoader(cacheRoot: File, private val download: suspend (path: String) -> ByteArray?) {
+class BackgroundLoader(
+    cacheRoot: File,
+    private val download: suspend (path: String) -> ByteArray?,
+    private val remote: suspend (url: String) -> ByteArray?,
+) {
     private val dir = File(cacheRoot, "media")
 
     suspend fun load(choice: Backgrounds.Choice, displayW: Int, displayH: Int): BackgroundImage? = withContext(Dispatchers.IO) {
-        val file = AtomicFile(File(dir, "${choice.sha256}.jpg"))
-        val bytes = cached(file, choice.sha256) ?: download(choice.path)?.takeIf { Backgrounds.verified(it, choice.sha256) }
-            ?.also { save(file, it) }
-            ?: return@withContext null
-        prune(keep = choice.sha256)
-        decode(bytes, displayW, displayH)?.let { BackgroundImage(choice.sha256, it, choice.scrim) }
+        val bytes = when (choice.origin) {
+            Backgrounds.Origin.CONTROL_PLANE -> controlPlane(choice.path, choice.sha256 ?: return@withContext null)
+            Backgrounds.Origin.UNSPLASH -> remote(choice.path)
+        } ?: return@withContext null
+        decode(bytes, displayW, displayH)?.let { BackgroundImage(choice.key, it, choice.scrim, choice.overlay, choice.credit) }
+    }
+
+    private suspend fun controlPlane(path: String, sha: String): ByteArray? {
+        val file = AtomicFile(File(dir, "$sha.jpg"))
+        val bytes = cached(file, sha) ?: download(path)?.takeIf { Backgrounds.verified(it, sha) }?.also { save(file, it) }
+            ?: return null
+        prune(keep = sha)
+        return bytes
     }
 
     private fun cached(file: AtomicFile, sha: String): ByteArray? = try {

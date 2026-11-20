@@ -27,6 +27,29 @@ class ProtocolJsonTest {
     }
 
     @Test
+    fun `parses a background and the fallback set (protocol v0_8_0)`() {
+        val c = ProtocolJson.decodeFromString(
+            LauncherConfig.serializer(),
+            """{"property":{"name":"P"},"server_time":"2026-11-12T15:00:00Z",
+               "background":{"url":"https://images.unsplash.com/p?ixid=1","url_2160":"https://images.unsplash.com/p?ixid=1&w=3840",
+                 "origin":"unsplash","overlay":"dim","scrim":0.62,"placeholder":"LEHV6nWB2yk8pyo0adR*.7kCMdnj",
+                 "attribution":{"text":"Photo by Ana Ruiz on Unsplash"},"future_field":true},
+               "fallback_backgrounds":["/v1/launcher/media/${"a".repeat(64)}"]}""",
+        )
+        val b = c.background!!
+        assertEquals("unsplash", b.origin)
+        assertEquals("dim", b.overlay)
+        assertEquals(0.62f, b.scrim)
+        assertEquals("Photo by Ana Ruiz on Unsplash", b.attribution?.text)
+        assertEquals("https://images.unsplash.com/p?ixid=1&w=3840", b.url2160)
+        assertEquals(1, c.fallbackBackgrounds.size)
+        // A control plane that predates it sends neither.
+        val old = ProtocolJson.decodeFromString(LauncherConfig.serializer(), """{"property":{"name":"P"},"server_time":"2026-11-12T15:00:00Z"}""")
+        assertNull(old.background)
+        assertEquals(emptyList<String>(), old.fallbackBackgrounds)
+    }
+
+    @Test
     fun `omitted optional fields take defaults`() {
         val c = ProtocolJson.decodeFromString(
             LauncherConfig.serializer(),

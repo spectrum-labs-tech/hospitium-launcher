@@ -84,6 +84,10 @@ data class LauncherConfig(
     val apps: List<LauncherApp> = emptyList(),
     /** Packages most started across the property first (protocol v0.7.0); sorts the app list. */
     @SerialName("popular_apps") val popularApps: List<String> = emptyList(),
+    /** The home screen's image, resolved for this TV (protocol v0.8.0); null means none is assigned. */
+    val background: Background? = null,
+    /** Media paths of images to keep for when nothing else can be shown (protocol v0.8.0). */
+    @SerialName("fallback_backgrounds") val fallbackBackgrounds: List<String> = emptyList(),
     @SerialName("server_time") val serverTime: Time,
     @SerialName("refresh_after_seconds") val refreshAfterSeconds: Int = 0,
 )
@@ -97,6 +101,38 @@ data class PropertyInfo(
     val amenities: List<String> = emptyList(),
     @SerialName("house_rules") val houseRules: List<String> = emptyList(),
 )
+
+/** Where a background comes from, which decides how it's fetched (protocol v0.8.0 BackgroundOrigin*). */
+object BackgroundOrigin {
+    /** A media path on the control plane, fetched with the device token. */
+    const val CONTROL_PLANE = "control_plane"
+
+    /** An https URL on images.unsplash.com, fetched with no credentials; its credit must be shown. */
+    const val UNSPLASH = "unsplash"
+}
+
+/** How text is kept legible over a background (protocol v0.8.0 BackgroundOverlay*). */
+object BackgroundOverlay {
+    const val GRADIENT = "gradient"
+    const val DIM = "dim"
+}
+
+/** The home screen's image (protocol v0.8.0). Backgrounds.choose decides whether it may be used. */
+@Serializable
+data class Background(
+    val url: String = "",
+    @SerialName("url_2160") val url2160: String = "",
+    val origin: String = "",
+    val overlay: String = BackgroundOverlay.GRADIENT,
+    val scrim: Float = 0.55f,
+    /** A BlurHash to draw while the image loads. */
+    val placeholder: String = "",
+    /** Shown whenever this image is, and never with another. */
+    val attribution: BackgroundAttribution? = null,
+)
+
+@Serializable
+data class BackgroundAttribution(val text: String = "")
 
 @Serializable
 data class WifiInfo(val ssid: String, val password: String? = null)

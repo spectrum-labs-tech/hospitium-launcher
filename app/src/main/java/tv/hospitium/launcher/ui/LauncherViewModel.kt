@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import tv.hospitium.launcher.BuildConfig
 import tv.hospitium.launcher.data.AndroidDeviceStore
 import tv.hospitium.launcher.domain.Backgrounds
+import tv.hospitium.launcher.net.RemoteImages
 import tv.hospitium.launcher.domain.LauncherController
 import tv.hospitium.launcher.domain.LauncherState
 import tv.hospitium.launcher.domain.UsageCounters
@@ -49,7 +50,9 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         usage = usage,
     ).also { it.start() }
 
-    private val backgrounds = BackgroundLoader(app.cacheDir, controller::media)
+    // Hotlinked photos (protocol v0.8.0) load from the provider's CDN with no credentials.
+    private val remoteImages = RemoteImages(userAgent)
+    private val backgrounds = BackgroundLoader(app.cacheDir, controller::media, remoteImages::fetch)
     private val _background = MutableStateFlow<BackgroundImage?>(null)
 
     /** The home screen's photo, or null for the plain brand color (none chosen, or not loaded yet). */
@@ -59,14 +62,14 @@ class LauncherViewModel(app: Application) : AndroidViewModel(app) {
         // Follow the config: load a background when a different one is chosen, drop it when removed.
         viewModelScope.launch {
             controller.state
-                .map { (it as? LauncherState.Home)?.cached?.config?.property?.branding }
+                .map { (it as? LauncherState.Home)?.cached?.config }
                 .filterNotNull()
-                .map { Backgrounds.choose(it, app.resources.displayMetrics.widthPixels) }
+                .map { Backgrounds.choose(it.background, it.property.branding, app.resources.displayMetrics.widthPixels) }
                 .distinctUntilChanged()
                 .collectLatest { choice ->
                     if (choice == null) {
                         _background.value = null
-                    } else if (_background.value?.sha256 != choice.sha256) {
+                    } else if (_background.value?.key != choice.key) {
                         val m = app.resources.displayMetrics
                         backgrounds.load(choice, m.widthPixels, m.heightPixels)?.let { _background.value = it }
                     }

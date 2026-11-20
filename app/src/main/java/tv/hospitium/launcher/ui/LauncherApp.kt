@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -18,12 +19,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.tv.material3.darkColorScheme
 import kotlinx.coroutines.delay
 import tv.hospitium.launcher.R
+import tv.hospitium.launcher.domain.Backgrounds
 import tv.hospitium.launcher.domain.LauncherState
 import java.time.Instant
 
@@ -83,26 +86,48 @@ fun LauncherApp(vm: LauncherViewModel) {
 }
 
 /**
- * The photo behind the home screen, with a gradient scrim so text stays legible: darkest behind the
- * welcome text (left) and the app rows (bottom). Its strength was measured from the photo at upload.
+ * The photo behind the home screen, with a scrim so text stays legible: a gradient darkest behind the
+ * welcome text (left) and the app rows (bottom), or an even dim. Its strength was measured from the
+ * photo. A credit the photo requires (an Unsplash photographer's) is drawn whenever the photo is.
  */
 @Composable
 fun Backdrop(bg: BackgroundImage) {
     Box(Modifier.fillMaxSize()) {
         Image(bg.bitmap, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         val dark = Color.Black
+        if (bg.overlay == Backgrounds.Overlay.DIM) {
+            Box(Modifier.fillMaxSize().background(dark.copy(alpha = bg.scrim)))
+        } else {
+            GradientScrim(bg.scrim)
+        }
+        bg.credit?.let {
+            Text(
+                it,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.85f),
+                // Inside the TV's overscan-safe area, clear of the app rows.
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = 20.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun GradientScrim(scrim: Float) {
+    val dark = Color.Black
+    Box(Modifier.fillMaxSize()) {
         Box(
             Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
-                    0f to dark.copy(alpha = bg.scrim),
-                    0.65f to dark.copy(alpha = bg.scrim * 0.45f),
-                    1f to dark.copy(alpha = bg.scrim * 0.15f),
+                    0f to dark.copy(alpha = scrim),
+                    0.65f to dark.copy(alpha = scrim * 0.45f),
+                    1f to dark.copy(alpha = scrim * 0.15f),
                 ),
             ),
         )
         Box(
             Modifier.fillMaxSize().background(
-                Brush.verticalGradient(0.45f to Color.Transparent, 1f to dark.copy(alpha = bg.scrim * 0.8f)),
+                Brush.verticalGradient(0.45f to Color.Transparent, 1f to dark.copy(alpha = scrim * 0.8f)),
             ),
         )
     }

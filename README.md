@@ -28,6 +28,10 @@ If an administrator removes the TV, the config call starts returning 401. After 
 
 - **HTTPS only**, system trust store only. Debug builds also allow plain HTTP to a development machine (`10.0.2.2`, `localhost`).
 - Redirects are never followed, so a bearer token can't be forwarded to another host.
+- **One other host.** The only request that doesn't go to the control plane is an Unsplash
+  background photo (protocol v0.8.0), loaded from `https://images.unsplash.com` as Unsplash's terms
+  require. It's sent with no token and no cookies, kept in memory only, and shown with the
+  photographer's credit. Any other host is refused before a request is made.
 - **The device token** is encrypted with AES-GCM under a non-exportable Android Keystore key.
 - **Backup is off** for the whole app. The token never leaves the TV, and everything else is a cache.
 - Nothing is logged that contains a token, a server response or guest data.
